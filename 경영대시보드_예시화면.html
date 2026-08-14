@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko" data-palette="#2a78d6,#eb6834,#1baf7a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>경영 대시보드 — 예시 화면 (기획안)</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --plane:          #f4f4f1;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --series-2:       #eb6834;
+    --series-3:       #1baf7a;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #d03b3b;
+    --good-text:      #006300;
+    --wash:           rgba(42,120,214,0.07);
+    --shadow:         0 1px 2px rgba(11,11,11,0.05), 0 6px 16px rgba(11,11,11,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --plane:          #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --grid:           #2c2c2a;
+      --axis:           #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --good-text:      #0ca30c;
+      --wash:           rgba(57,135,229,0.12);
+      --shadow:         0 1px 2px rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --plane:          #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --good-text:      #0ca30c;
+    --wash:           rgba(57,135,229,0.12);
+    --shadow:         0 1px 2px rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 0 40px;
+    background: var(--plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .notice {
+    background: #fff4d6;
+    color: #5c4400;
+    border-bottom: 1px solid rgba(11,11,11,0.10);
+    padding: 9px 24px;
+    font-size: 12.5px;
+    text-align: center;
+  }
+  .notice b { font-weight: 650; }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .notice {
+      background: #3a2f10; color: #f5d98a; border-bottom-color: rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] .notice {
+    background: #3a2f10; color: #f5d98a; border-bottom-color: rgba(255,255,255,0.10);
+  }
+
+  .wrap { max-width: 1480px; margin: 0 auto; padding: 0 24px; }
+
+  header.top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding: 26px 0 18px;
+  }
+  .title-block h1 {
+    margin: 0; font-size: 22px; font-weight: 640; letter-spacing: -0.01em;
+  }
+  .title-block p {
+    margin: 4px 0 0; color: var(--text-secondary); font-size: 13px;
+  }
+  .meta { display: flex; align-items: center; gap: 18px; font-size: 12.5px; color: var(--text-secondary); }
+  .live { display: inline-flex; align-items: center; gap: 7px; }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--good);
+    box-shadow: 0 0 0 3px rgba(12,163,12,0.18);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .grid { display: grid; gap: 16px; }
+  .kpis { grid-template-columns: repeat(3, 1fr); margin-bottom: 16px; }
+  .cols { grid-template-columns: 2fr 1fr; align-items: start; }
+  @media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .cols { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .cols .card + .card { margin-top: 16px; }
+  .card h2 {
+    margin: 0 0 2px; font-size: 14.5px; font-weight: 640;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .card .sub { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+  .src { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  /* ---- KPI tiles ---- */
+  .kpi .label { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; }
+  .kpi .value { font-size: 34px; font-weight: 620; letter-spacing: -0.02em; line-height: 1.1; }
+  .kpi .value small { font-size: 15px; font-weight: 500; color: var(--text-secondary); margin-left: 3px; }
+  .kpi .delta { margin-top: 7px; font-size: 12px; color: var(--text-secondary); }
+  .kpi .delta.up { color: var(--good-text); }
+  .kpi.alert { border-color: rgba(208,59,59,0.45); }
+  .kpi.alert .value { color: var(--critical); }
+
+  /* ---- status chips (icon + label, never color alone) ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 550; padding: 2px 8px 2px 6px;
+    border-radius: 999px; border: 1px solid var(--border); white-space: nowrap;
+  }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .chip.c-crit  i { background: var(--critical); }
+  .chip.c-ser   i { background: var(--serious); }
+  .chip.c-warn  i { background: var(--warning); }
+  .chip.c-good  i { background: var(--good); }
+  .chip.c-act   i { background: var(--good); }
+  .chip.c-slow  i { background: var(--warning); }
+  .chip.c-idle  i { background: var(--serious); }
+  .chip.c-end   i { background: var(--muted); }
+  .chip.c-mark  { background: var(--wash); border-color: transparent; color: var(--series-1); }
+  .chip.c-mark  i { background: var(--series-1); }
+
+  /* ---- lists ---- */
+  ul.rows { list-style: none; margin: 0; padding: 0; }
+  ul.rows li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-top: 1px solid var(--grid);
+  }
+  ul.rows li:first-child { border-top: 0; }
+  .rows .main { flex: 1; min-width: 0; }
+  .rows .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rows .meta2 { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .rows .right { text-align: right; flex: none; }
+
+  .time-pill {
+    font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 600;
+    color: var(--text-secondary); background: var(--wash);
+    padding: 3px 8px; border-radius: 6px; flex: none;
+  }
+
+  /* ---- table ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; font-weight: 550; font-size: 11.5px; color: var(--muted);
+    padding: 0 10px 8px 0; border-bottom: 1px solid var(--axis); white-space: nowrap;
+  }
+  td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+  th.num { text-align: right; padding-right: 0; }
+  tr:last-child td { border-bottom: 0; }
+  .proj { font-weight: 550; }
+
+  /* ---- stacked bar ---- */
+  .stack { display: flex; gap: 2px; height: 34px; margin: 4px 0 10px; }
+  .stack div {
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 600;
+    border-radius: 3px;
+  }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+  .callout {
+    margin-top: 14px; padding: 12px 14px; border-radius: 9px;
+    background: var(--wash); font-size: 12.5px; line-height: 1.65;
+    color: var(--text-secondary);
+  }
+  .callout b { color: var(--text-primary); font-weight: 600; }
+
+  .act {
+    display: inline-block; font-size: 10.5px; font-weight: 600;
+    padding: 1px 6px; border-radius: 4px; margin-right: 6px;
+    vertical-align: 1px; letter-spacing: 0.01em;
+  }
+  .act.a-add  { background: rgba(12,163,12,0.13);  color: var(--good-text); }
+  .act.a-edit { background: rgba(42,120,214,0.13); color: var(--series-1); }
+  .act.a-del  { background: rgba(208,59,59,0.13);  color: var(--critical); }
+  .act.a-move { background: rgba(137,135,129,0.18); color: var(--text-secondary); }
+  .act.a-link { background: rgba(235,104,52,0.13); color: var(--series-2); }
+
+  .setbtn {
+    display: inline-block; font-size: 11.5px; color: var(--muted);
+    border: 1px dashed var(--axis); border-radius: 999px;
+    padding: 2px 9px; cursor: pointer; white-space: nowrap;
+  }
+
+  /* ---- horizontal bars ---- */
+  .hbar { display: grid; grid-template-columns: 76px 1fr 52px; gap: 12px; align-items: center; margin-bottom: 8px; }
+  .hbar:last-child { margin-bottom: 0; }
+  .hbar .who { font-size: 12.5px; color: var(--text-secondary); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar .track { display: block; height: 16px; background: var(--wash); border-radius: 4px; overflow: hidden; }
+  .hbar .fill { display: block; height: 16px; background: var(--series-1); border-radius: 0 4px 4px 0; }
+  .hbar .val { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); font-weight: 550; }
+
+  /* ---- mail toggle ---- */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    font: inherit; font-size: 11.5px; font-weight: 550; padding: 4px 11px;
+    background: transparent; color: var(--text-secondary); border: 0; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--series-1); color: #fff; }
+  .acct {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 5px; flex: none;
+    font-size: 10px; font-weight: 700; color: #fff;
+  }
+  .acct.dw { background: var(--series-1); }
+  .acct.gm { background: var(--series-2); }
+  .acct.nv { background: var(--series-3); }
+  .mailcount { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; text-align: center; }
+  .mailcount div { border: 1px solid var(--border); border-radius: 10px; padding: 12px 6px; }
+  .mailcount .n { font-size: 26px; font-weight: 620; line-height: 1.2; }
+  .mailcount .t { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+  .mailcount .lnk { font-size: 11px; color: var(--series-1); margin-top: 6px; }
+
+  /* ---- chart ---- */
+  .chartbox { position: relative; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tick { font-size: 10.5px; fill: var(--muted); }
+  .tip {
+    position: absolute; pointer-events: none; opacity: 0;
+    background: var(--surface-1); border: 1px solid var(--border);
+    box-shadow: var(--shadow); border-radius: 8px; padding: 7px 10px;
+    font-size: 12px; white-space: nowrap; transition: opacity .12s; z-index: 5;
+  }
+  .tip b { font-variant-numeric: tabular-nums; }
+
+  details.tablev { margin-top: 12px; }
+  details.tablev summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  details.tablev table { margin-top: 8px; font-size: 12px; }
+
+  footer.note {
+    margin-top: 22px; font-size: 12px; color: var(--muted); line-height: 1.7;
+    border-top: 1px solid var(--grid); padding-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="notice">
+  <b>예시 화면입니다.</b> 화면에 보이는 숫자와 이름은 모두 가상의 예시 데이터이며, 실제 회사 데이터가 아닙니다. 화면 구성과 표시 항목을 확인하는 용도입니다.
+</div>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="title-block">
+      <h1>경영 대시보드</h1>
+      <p>씽크와이즈 협업·플래너 + 메일 통합 &nbsp;·&nbsp; 대표이사 전용 화면</p>
+    </div>
+    <div class="meta">
+      <span class="live"><span class="dot"></span> 30초마다 자동 갱신</span>
+      <span>2026-08-14 (금) 11:34 기준</span>
+    </div>
+  </header>
+
+  <!-- KPI -->
+  <section class="grid kpis">
+    <div class="card kpi">
+      <div class="label">지금 일하는 중</div>
+      <div class="value">4<small>명 / 7명</small></div>
+      <div class="delta">씽크와이즈를 실제로 쓰는 인원 7명 기준</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">최근 1주 내 움직인 프로젝트</div>
+      <div class="value">25<small>건</small></div>
+      <div class="delta">전체 87건 · 둔화 4 · 정체 5 · 오래 멈춤 53</div>
+    </div>
+    <div class="card kpi alert">
+      <div class="label">2주 이상 멈춘 프로젝트</div>
+      <div class="value">5<small>건</small></div>
+      <div class="delta">가장 오래된 건 26일 경과</div>
+    </div>
+  </section>
+
+  <div class="grid cols">
+
+    <!-- LEFT -->
+    <div>
+
+      <!-- 멈춘 프로젝트 -->
+      <div class="card">
+        <h2>멈춰 있는 프로젝트 <span class="src">출처: collaboration_board</span></h2>
+        <p class="sub">14~29일 아무도 수정하지 않은 협업. 경과일이 긴 순서. (30일 이상은 '오래 멈춤'으로 따로 분류)</p>
+        <ul class="rows">
+          <li>
+            <div class="main">
+              <div class="name">안양 덕천지구 아파트 수변전 설비</div>
+              <div class="meta2">담당 이현우 · 참여 4명 · 최종 수정 07-19</div>
+            </div>
+            <span class="chip c-crit"><i></i>26일 정체</span>
+          </li>
+          <li>
+            <div class="main">
+              <div class="name">부천 공장 동력설비 증설</div>
+              <div class="meta2">담당 임재혁 · 참여 3명 · 최종 수정 07-22</div>
+            </div>
+            <span class="chip c-ser"><i></i>23일 정체</span>
+          </li>
+          <li>
+            <div class="main">
+              <div class="name">2026 상반기 안전관리 계획</div>
+              <div class="meta2">담당 정다은 · 참여 8명 · 최종 수정 07-24</div>
+            </div>
+            <span class="chip c-ser"><i></i>21일 정체</span>
+          </li>
+          <li>
+            <div class="main">
+              <div class="name">김포 물류센터 조명·전열 설계</div>
+              <div class="meta2">담당 최민석 · 참여 3명 · 최종 수정 07-28</div>
+            </div>
+            <span class="chip c-warn"><i></i>17일 정체</span>
+          </li>
+          <li>
+            <div class="main">
+              <div class="name">하남 오피스텔 소방전기 감리</div>
+              <div class="meta2">담당 강태윤 · 참여 3명 · 최종 수정 07-30</div>
+            </div>
+            <span class="chip c-warn"><i></i>15일 정체</span>
+          </li>
+        </ul>
+        <p class="sub" style="margin:12px 0 0">현재 해당하는 5건 전부 · 기준일수는 설정에서 변경 가능</p>
+      </div>
+
+      <!-- 프로젝트 현황판 -->
+      <div class="card">
+        <h2>프로젝트 현황판 <span class="src">출처: collaboration_board + collaboration_participant</span></h2>
+        <p class="sub">전체 87건 · 마지막 수정 시각 기준 자동 분류</p>
+
+        <div class="stack" role="img" aria-label="활발 25건, 둔화 4건, 정체 5건, 오래 멈춤 53건">
+          <div style="width:28.7%; background:var(--good)">활발 25</div>
+          <div style="width:4.6%;  background:var(--warning); color:#3d2f00">4</div>
+          <div style="width:5.7%;  background:var(--serious); color:#2e1405">5</div>
+          <div style="width:60.9%; background:var(--muted)">오래 멈춤 53</div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--good)"></i>활발 25건 — 7일 이내 수정</span>
+          <span><i style="background:var(--warning)"></i>둔화 4건 — 8~13일</span>
+          <span><i style="background:var(--serious)"></i>정체 5건 — 14~29일</span>
+          <span><i style="background:var(--muted)"></i>오래 멈춤 53건 — 30일 이상</span>
+        </div>
+
+        <div class="callout">
+          씽크와이즈에는 프로젝트의 진행 단계를 기록하는 기능이 없습니다. 그래서 이 분류는
+          <b>담당자가 마지막으로 맵을 수정한 시각</b>을 기준으로 자동 계산됩니다 — 아무도 따로 입력하지 않아도 항상 최신입니다.
+          다만 <b>끝난 일</b>과 <b>멈춘 일</b>은 자동으로 구분할 수 없으므로, 대표님이 목록에서 직접 <b>완료</b>로 표시하시면
+          그 표시가 자동 분류보다 우선 적용됩니다. (표시 내용은 대시보드에만 저장되며 씽크와이즈에는 영향을 주지 않습니다.)
+          <br><br>
+          현재 <b>오래 멈춤 53건</b>은 2020년부터 6년간 누적된 협업 전체가 대상이라, 대부분 이미 끝난 건입니다.
+          <b>완료</b>로 표시해 두시면 목록에서 접혀 화면이 정리됩니다.
+        </div>
+
+        <table style="margin-top:16px">
+          <thead>
+            <tr>
+              <th>프로젝트</th><th>자동 분류</th><th>대표님 표시</th><th>담당</th>
+              <th class="num">참여</th><th class="num">가지</th><th class="num">최종 수정</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="proj">삼성 평택 3기 전기공사</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="setbtn">표시 +</span></td><td>박준호</td><td class="num">6</td><td class="num">418</td><td class="num">오늘 10:20</td></tr>
+            <tr><td class="proj">시흥 배곧 상가 전기 인입</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="setbtn">표시 +</span></td><td>이현우</td><td class="num">4</td><td class="num">276</td><td class="num">오늘 09:57</td></tr>
+            <tr><td class="proj">2026 하반기 자재 단가 협상</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="setbtn">표시 +</span></td><td>정다은</td><td class="num">3</td><td class="num">132</td><td class="num">어제 17:41</td></tr>
+            <tr><td class="proj">광명 KTX 역사 조명 개선</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="setbtn">표시 +</span></td><td>최민석</td><td class="num">5</td><td class="num">351</td><td class="num">어제 16:08</td></tr>
+            <tr><td class="proj">본사 사옥 전기설비 정기점검</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="chip c-mark"><i></i>완료</span></td><td>강태윤</td><td class="num">3</td><td class="num">97</td><td class="num">08-12</td></tr>
+            <tr><td class="proj">수원 데이터센터 UPS 증설</td><td><span class="chip c-act"><i></i>활발</span></td><td><span class="setbtn">표시 +</span></td><td>윤서진</td><td class="num">7</td><td class="num">502</td><td class="num">08-12</td></tr>
+            <tr><td class="proj">인천 공장 전력 품질 진단</td><td><span class="chip c-slow"><i></i>둔화</span></td><td><span class="setbtn">표시 +</span></td><td>임재혁</td><td class="num">2</td><td class="num">88</td><td class="num">08-04</td></tr>
+            <tr><td class="proj">용인 물류창고 태양광 연계</td><td><span class="chip c-slow"><i></i>둔화</span></td><td><span class="chip c-mark"><i></i>완료</span></td><td>한지우</td><td class="num">4</td><td class="num">214</td><td class="num">08-03</td></tr>
+          </tbody>
+        </table>
+        <p class="sub" style="margin:12px 0 0">최종 수정일 순 상위 8건 · '표시 +' 를 누르면 완료 / 진행 / 보류 를 지정할 수 있습니다</p>
+      </div>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+
+      <!-- 오늘 건드린 내용 -->
+      <div class="card">
+        <h2>오늘 건드린 내용 <span class="src">출처: work_log</span></h2>
+        <p class="sub">직원들이 오늘 씽크와이즈에서 실제로 추가·수정한 항목 · 최근 순</p>
+        <ul class="rows">
+          <li><span class="time-pill">11:19</span>
+            <div class="main"><div class="name"><span class="act a-add">추가</span> 3층 분전반 결선 완료</div>
+            <div class="meta2">박준호 · 삼성 평택 3기 전기공사</div></div></li>
+          <li><span class="time-pill">11:15</span>
+            <div class="main"><div class="name"><span class="act a-edit">수정</span> 케이블 트레이 규격 변경 검토</div>
+            <div class="meta2">이현우 · 시흥 배곧 상가 전기 인입</div></div></li>
+          <li><span class="time-pill">11:14</span>
+            <div class="main"><div class="name"><span class="act a-link">연결</span> 8월_기성내역서.xlsx</div>
+            <div class="meta2">정다은 · 2026 하반기 자재 단가 협상</div></div></li>
+          <li><span class="time-pill">11:12</span>
+            <div class="main"><div class="name"><span class="act a-move">이동</span> 조명 배치도 검토</div>
+            <div class="meta2">최민석 · 광명 KTX 역사 조명 개선</div></div></li>
+          <li><span class="time-pill">10:52</span>
+            <div class="main"><div class="name"><span class="act a-add">추가</span> 감리단 지적사항 3건 반영</div>
+            <div class="meta2">박준호 · 삼성 평택 3기 전기공사</div></div></li>
+          <li><span class="time-pill">10:41</span>
+            <div class="main"><div class="name"><span class="act a-del">삭제</span> 임시 메모</div>
+            <div class="meta2">강태윤 · 본사 사옥 전기설비 정기점검</div></div></li>
+        </ul>
+        <p class="sub" style="margin:12px 0 0; line-height:1.6">
+          맵 전체 내용을 옮겨오는 것은 구조상 불가능하지만, <b>가지 단위로 무엇을 추가·수정했는지는 그대로 확인</b>할 수 있습니다.
+        </p>
+      </div>
+
+      <!-- 메일 -->
+      <div class="card">
+        <h2>메일 <span class="src">다우오피스 · Gmail · 네이버</span></h2>
+        <p class="sub">3개 계정 통합 · 안 읽은 메일 20건 중 최근 순</p>
+
+        <div id="mailFull">
+          <ul class="rows">
+            <li>
+              <span class="acct dw">다우</span>
+              <div class="main"><div class="name">8월 기성 청구서 송부의 건</div><div class="meta2">(주)한전기업 김상무</div></div>
+              <div class="right"><div class="meta2">10:22</div></div>
+            </li>
+            <li>
+              <span class="acct dw">다우</span>
+              <div class="main"><div class="name">덕천지구 인허가 보완 요청</div><div class="meta2">안양시청 전기과</div></div>
+              <div class="right"><div class="meta2">09:48</div></div>
+            </li>
+            <li>
+              <span class="acct gm">G</span>
+              <div class="main"><div class="name">케이블 단가 인상 안내 (9월 적용)</div><div class="meta2">대한전선 영업팀</div></div>
+              <div class="right"><div class="meta2">09:15</div></div>
+            </li>
+            <li>
+              <span class="acct nv">N</span>
+              <div class="main"><div class="name">하반기 교육 일정 안내</div><div class="meta2">한국전기공사협회</div></div>
+              <div class="right"><div class="meta2">08:40</div></div>
+            </li>
+            <li>
+              <span class="acct dw">다우</span>
+              <div class="main"><div class="name">김포 물류센터 도면 검토 요청</div><div class="meta2">이현우</div></div>
+              <div class="right"><div class="meta2">08:12</div></div>
+            </li>
+          </ul>
+          <p class="sub" style="margin:12px 0 0; line-height:1.6">
+            제목을 누르면 해당 메일함이 열립니다. 대시보드는 <b>제목·발신자·시각만</b> 읽어오며 본문은 저장하지 않고,
+            읽음 표시도 바뀌지 않습니다.
+          </p>
+        </div>
+      </div>
+
+      <!-- 접속 중 -->
+      <div class="card">
+        <h2>지금 접속 중 <span class="src">출처: conn_usertime</span></h2>
+        <p class="sub">최근 15분 이내 활동 · 4명</p>
+        <ul class="rows">
+          <li><div class="main"><div class="name">박준호</div><div class="meta2">삼성 평택 3기 전기공사</div></div><span class="time-pill">11:19</span></li>
+          <li><div class="main"><div class="name">이현우</div><div class="meta2">시흥 배곧 상가 전기 인입</div></div><span class="time-pill">11:15</span></li>
+          <li><div class="main"><div class="name">정다은</div><div class="meta2">2026 하반기 자재 단가 협상</div></div><span class="time-pill">11:14</span></li>
+          <li><div class="main"><div class="name">최민석</div><div class="meta2">광명 KTX 역사 조명 개선</div></div><span class="time-pill">11:12</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="note">
+    <b>2026-08-14 회의 반영본.</b> 작업량 추이·구성원별 활동량·오늘 오간 파일·오늘 작업 건수(KPI)를 제외했습니다.
+    일정 섹션은 씽크와이즈 플래너와 구글 캘린더 중 어느 쪽으로 할지 검토 후 별도 제안 예정입니다.<br>
+    대표이사 전용 화면이므로 접속 시 비밀번호 인증을 두며, 사내망에서만 열립니다. 데이터베이스는 읽기 전용으로만 접근하여 씽크와이즈 운영에 영향을 주지 않습니다.
+    표시 항목·배치·기준일수(정체 판정 14일 등)는 언제든 조정 가능합니다.
+  </footer>
+
+</div>
+
+</body>
+</html>

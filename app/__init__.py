@@ -1,0 +1,1 @@
+"""YJ executive dashboard application."""

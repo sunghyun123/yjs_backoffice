@@ -1,28 +1,47 @@
-# yjs_backoffice — 경영지원 대시보드
+# yjs_backoffice — 경영 대시보드
 
-영전사 경영지원(총무·인사·회계 등 비영업 지원 업무) 대시보드.
+대표이사가 씽크와이즈 협업 현황과 최근 안 읽은 메일을 한 화면에서 확인하는 전용 대시보드입니다.
 
-> 현재 상태: **골격만 잡힌 빈 레포.** 스택은 아직 정하지 않았다.
+> 현재 상태: **Phase 1 백엔드·캐시와 Phase 2 화면 연결 구현 중**
 
-## 아직 정하지 않은 것
+## 프로젝트 문서
 
-- [ ] 스택 (Next.js + Supabase / Python + FastAPI / 그 외)
-- [ ] 무엇을 다루는 대시보드인가 (아래 "다룰 업무" 채우기)
-- [ ] 배포 위치 (사내 서버 / Vercel / 기존 ERP 서버에 합류)
-- [ ] 인증 방식 (기존 카카오 로그인 + 화이트리스트 재사용 여부)
+- [구축 기획서](./경영대시보드_기획서.md)
+- [개발 진행 현황](./경영대시보드_개발진행현황.md)
+- [승인 화면 목업](./경영대시보드_예시화면_v2.html)
+- [초기 화면 목업](./경영대시보드_예시화면.html)
 
-## 다룰 업무 (정해지는 대로 채운다)
+## 확정 기술 구성
 
--
--
-
-## 관련 레포
-
-- `yjs_erp` — 수주·기성·투입실적. 경영지원 쪽에서 금액 데이터를 읽을 일이 생기면 여기가 원본.
-- `yjs_Dashboard` — 사내 상황판. ERP의 API를 소비하는 쪽.
+- 백엔드: Python 3.11+ / FastAPI / uvicorn / PyMySQL
+- 프론트엔드: 단일 HTML / 바닐라 JavaScript
+- 자체 데이터: SQLite
+- 배포: 사내 Windows 서버 / 작업 스케줄러
+- 외부 접속: Tailscale Serve 비공개 HTTPS
 
 ## 실행
 
+현재는 별도 서비스에 영향을 주지 않는 데모 데이터 모드가 기본입니다.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+Copy-Item .env.example .env
+.\.venv\Scripts\python.exe run.py
 ```
-(스택 정한 뒤 채운다)
+
+브라우저에서 `http://127.0.0.1:8080`을 엽니다. 종료는 실행한 터미널에서 `Ctrl+C`를 누릅니다.
+
+전체 테스트는 다음 명령으로 실행합니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
 ```
+
+실데이터 연결 전에는 `.env`에 씽크와이즈 읽기 전용 계정을 설정하고 아래 진단을 먼저 실행해야 합니다. 진단 스크립트도 조회만 허용합니다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\validate_phase0.py
+```
+
+진행 범위와 실데이터 검증 대기 항목은 [개발 진행 현황](./경영대시보드_개발진행현황.md)을 기준으로 확인합니다.
