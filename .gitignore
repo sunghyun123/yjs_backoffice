@@ -1,0 +1,39 @@
+# ── 비밀값 (스택과 무관하게 항상 제외) ────────────────
+.env
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+*.pem
+*.key
+
+# ── OS / 에디터 ───────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ── Node / Next.js ───────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# ── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# ── 로컬 데이터 / 업로드 (레포에 올리지 않는다) ────────
+*.db
+*.sqlite3
+uploads/
+data/local/
