@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>경영 대시보드 — 가독성 개선 목업</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f3f6fa;
+    --surface: #ffffff;
+    --surface-subtle: #f7f9fc;
+    --text: #172033;
+    --text-soft: #5c667a;
+    --text-faint: #7d879a;
+    --line: #e3e8f0;
+    --line-strong: #d2d9e5;
+    --navy: #173f70;
+    --blue: #2563a9;
+    --blue-soft: #eaf2fc;
+    --green: #22835a;
+    --green-soft: #e8f6ef;
+    --amber: #9a6700;
+    --amber-soft: #fff5d8;
+    --orange: #b44b23;
+    --orange-soft: #fff0e9;
+    --red: #b4233b;
+    --red-soft: #fff0f2;
+    --purple: #7253a6;
+    --purple-soft: #f3eefb;
+    --cyan: #167f91;
+    --cyan-soft: #e6f5f7;
+    --shadow: 0 10px 30px rgba(24, 45, 77, 0.07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #10151d;
+      --surface: #171e28;
+      --surface-subtle: #1c2531;
+      --text: #f3f6fb;
+      --text-soft: #b7c0ce;
+      --text-faint: #8f9aad;
+      --line: #293442;
+      --line-strong: #3a4656;
+      --navy: #b7d7ff;
+      --blue: #7cb6fb;
+      --blue-soft: #1c3450;
+      --green: #70d5a7;
+      --green-soft: #18372c;
+      --amber: #f2ca6b;
+      --amber-soft: #3b3118;
+      --orange: #ffac86;
+      --orange-soft: #46291f;
+      --red: #ff8da0;
+      --red-soft: #45222a;
+      --purple: #c0a8eb;
+      --purple-soft: #332946;
+      --cyan: #72cbd7;
+      --cyan-soft: #19363c;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input, select { font: inherit; }
+  button, select, a { -webkit-tap-highlight-color: transparent; }
+  a { color: inherit; text-decoration: none; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+  .mock-notice {
+    padding: 9px 20px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    border-bottom: 1px solid color-mix(in srgb, var(--amber) 22%, transparent);
+    text-align: center;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .mock-notice.is-live { background: var(--green-soft); color: var(--green); }
+  .mock-notice.is-stale { background: var(--red-soft); color: var(--red); }
+
+  .dashboard {
+    width: min(1440px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 28px 0 40px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 22px;
+  }
+
+  .eyebrow {
+    margin: 0 0 4px;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--navy);
+    font-size: clamp(28px, 3vw, 38px);
+    line-height: 1.15;
+    letter-spacing: -0.035em;
+  }
+
+  .subtitle {
+    margin: 8px 0 0;
+    color: var(--text-soft);
+    font-size: 16px;
+  }
+
+  .sync-panel {
+    min-width: 310px;
+    padding: 13px 15px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  .secure {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 8px;
+    color: var(--green);
+    font-weight: 750;
+  }
+
+  .secure-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 16%, transparent);
+  }
+
+  .sync-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .sync-row + .sync-row { margin-top: 3px; }
+  .settings-button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 7px 10px;
+    color: var(--blue);
+    background: var(--blue-soft);
+    border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+    border-radius: 8px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  .visual-summary {
+    display: grid;
+    grid-template-columns: minmax(230px, 0.8fr) minmax(420px, 1.5fr) minmax(280px, 1fr);
+    margin-bottom: 18px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--blue-soft) 72%, transparent), transparent 32%),
+      var(--surface);
+  }
+
+  .summary-chart {
+    min-width: 0;
+    padding: 20px 22px;
+  }
+
+  .summary-chart + .summary-chart { border-left: 1px solid var(--line); }
+  .chart-title { margin: 0; color: var(--navy); font-size: 15px; font-weight: 760; }
+  .chart-subtitle { margin: 4px 0 0; color: var(--text-faint); font-size: 12px; }
+
+  .activity-chart {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 14px;
+  }
+
+  .ring-svg { width: 118px; height: 118px; flex: none; overflow: visible; }
+  .ring-track, .ring-segment {
+    fill: none;
+    stroke-width: 12;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+  }
+
+  .ring-track { stroke: var(--line); }
+  .ring-segment { stroke-linecap: butt; }
+  .ring-activity { stroke: var(--green); stroke-linecap: round; }
+  .ring-active { stroke: var(--green); }
+  .ring-slow { stroke: var(--amber); }
+  .ring-idle { stroke: var(--orange); }
+  .ring-dormant { stroke: var(--text-faint); }
+  .ring-running { stroke: var(--cyan); }
+  .ring-done { stroke: var(--blue); }
+  .ring-hold { stroke: var(--purple); }
+
+  .ring-number {
+    fill: var(--text);
+    font-family: inherit;
+    font-size: 28px;
+    font-weight: 780;
+    text-anchor: middle;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ring-unit {
+    fill: var(--text-faint);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+
+  .activity-copy strong {
+    display: block;
+    color: var(--green);
+    font-size: 25px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .activity-copy span { display: block; margin-top: 6px; color: var(--text-soft); font-size: 13px; }
+
+  .status-chart-layout {
+    display: grid;
+    grid-template-columns: 142px minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+    margin-top: 9px;
+  }
+
+  .status-ring { width: 142px; height: 142px; }
+  .chart-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 16px; }
+  .legend-item { display: grid; grid-template-columns: auto 1fr auto; gap: 7px; align-items: center; color: var(--text-soft); font-size: 12px; }
+  .legend-item strong { color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .legend-dot.active { background: var(--green); }
+  .legend-dot.slow { background: var(--amber); }
+  .legend-dot.idle { background: var(--orange); }
+  .legend-dot.dormant { background: var(--text-faint); }
+  .legend-dot.running { background: var(--cyan); }
+  .legend-dot.done { background: var(--blue); }
+  .legend-dot.hold { background: var(--purple); }
+  .legend-dot.daou { background: var(--blue); }
+  .legend-dot.gmail { background: var(--orange); }
+  .legend-dot.naver { background: var(--green); }
+
+  .mail-total {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .mail-total strong { color: var(--purple); font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mail-total span { color: var(--text-soft); font-weight: 700; }
+
+  .mail-stack {
+    display: flex;
+    width: 100%;
+    height: 18px;
+    margin: 14px 0 13px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: var(--line);
+  }
+
+  .mail-stack span { display: block; height: 100%; }
+  .mail-stack-daou { flex: 12; background: var(--blue); }
+  .mail-stack-gmail { flex: 5; background: var(--orange); }
+  .mail-stack-naver { flex: 3; background: var(--green); }
+  .mail-legend { display: grid; gap: 7px; }
+  .mail-legend-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; color: var(--text-soft); font-size: 12px; }
+  .mail-legend-row strong { color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  .focus-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(380px, 0.82fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 18px;
+  }
+
+  .right-stack { display: grid; gap: 18px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    box-shadow: var(--shadow);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 19px 20px 15px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .panel-head h2 {
+    margin: 0;
+    color: var(--navy);
+    font-size: 19px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+
+  .panel-head p { margin: 5px 0 0; color: var(--text-soft); font-size: 13px; }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 28px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--red-soft);
+    color: var(--red);
+    font-weight: 780;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .project-alerts, .feed, .mail-list { margin: 0; padding: 0 20px; list-style: none; }
+
+  .project-alert {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .project-alert:last-child { border-bottom: 0; }
+  .item-title { overflow: hidden; font-weight: 730; text-overflow: ellipsis; white-space: nowrap; }
+  .item-meta { margin-top: 4px; color: var(--text-faint); font-size: 13px; }
+
+  .idle-days {
+    min-width: 68px;
+    color: var(--red);
+    text-align: right;
+    font-size: 18px;
+    font-weight: 780;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .idle-days small { display: block; margin-top: 1px; color: var(--text-faint); font-size: 11px; font-weight: 650; }
+
+  .status-select {
+    min-width: 104px;
+    padding: 8px 30px 8px 10px;
+    color: var(--text);
+    background: var(--surface-subtle);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    cursor: pointer;
+  }
+
+  .panel-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 13px 20px;
+    background: var(--surface-subtle);
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 15px 15px;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .text-link { color: var(--blue); font-weight: 750; }
+
+  .feed li, .mail-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .feed li:last-child, .mail-list li:last-child { border-bottom: 0; }
+
+  .action-label {
+    min-width: 39px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .action-add { background: var(--green-soft); color: var(--green); }
+  .action-edit { background: var(--blue-soft); color: var(--blue); }
+  .action-link { background: var(--orange-soft); color: var(--orange); }
+  .action-move { background: var(--surface-subtle); color: var(--text-soft); }
+
+  .row-time { color: var(--text-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .account {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 33px;
+    height: 27px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .account-daou { background: var(--blue); }
+  .account-gmail { background: var(--orange); }
+  .account-naver { background: var(--green); }
+
+  .project-board { margin-bottom: 18px; }
+
+  .board-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  .filter {
+    padding: 7px 10px;
+    color: var(--text-soft);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .filter[aria-pressed="true"] { color: #fff; background: var(--navy); border-color: var(--navy); }
+
+  .search {
+    width: min(260px, 100%);
+    padding: 8px 11px;
+    color: var(--text);
+    background: var(--surface-subtle);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+  }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 790px; border-collapse: collapse; }
+  th, td { padding: 13px 20px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--text-faint); background: var(--surface-subtle); font-size: 12px; font-weight: 750; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: color-mix(in srgb, var(--blue-soft) 45%, transparent); }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .state-active { color: var(--green); background: var(--green-soft); }
+  .state-slow { color: var(--amber); background: var(--amber-soft); }
+  .state-idle { color: var(--orange); background: var(--orange-soft); }
+  .state-dormant { color: var(--text-soft); background: var(--surface-subtle); }
+  .state-running { color: var(--cyan); background: var(--cyan-soft); }
+  .state-done { color: var(--blue); background: var(--blue-soft); }
+  .state-hold { color: var(--purple); background: var(--purple-soft); }
+
+  .criteria {
+    padding: 0 20px 18px;
+    color: var(--text-soft);
+    font-size: 13px;
+  }
+
+  .criteria summary { cursor: pointer; color: var(--blue); font-weight: 700; }
+  .criteria p { margin: 9px 0 0; }
+
+  .online-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 20px;
+  }
+
+  .online-copy h2 { margin: 0; color: var(--navy); font-size: 17px; }
+  .online-copy p { margin: 3px 0 0; color: var(--text-soft); font-size: 13px; }
+  .people { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+  .person {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .person::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+  .empty-message {
+    display: none;
+    padding: 32px 20px;
+    color: var(--text-soft);
+    text-align: center;
+  }
+
+  @media (max-width: 1120px) {
+    .visual-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .summary-chart:last-child { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
+    .focus-grid { grid-template-columns: 1fr; }
+    .right-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 760px) {
+    .dashboard { width: min(100% - 24px, 1440px); padding-top: 20px; }
+    .topbar { flex-direction: column; }
+    .sync-panel { width: 100%; min-width: 0; }
+    .visual-summary { grid-template-columns: 1fr; }
+    .summary-chart + .summary-chart { border-top: 1px solid var(--line); border-left: 0; }
+    .summary-chart:last-child { grid-column: auto; }
+    .right-stack { grid-template-columns: 1fr; }
+    .project-alert { grid-template-columns: minmax(0, 1fr) auto; }
+    .project-alert .status-select { grid-column: 1 / -1; width: 100%; }
+    .online-strip { align-items: flex-start; flex-direction: column; }
+    .people { justify-content: flex-start; }
+  }
+
+  @media (max-width: 520px) {
+    .summary-chart { padding: 18px 15px; }
+    .status-chart-layout { grid-template-columns: 118px minmax(0, 1fr); gap: 13px; }
+    .status-ring { width: 118px; height: 118px; }
+    .chart-legend { grid-template-columns: 1fr; gap: 6px; }
+    .panel-head, .board-tools { padding-left: 15px; padding-right: 15px; }
+    .project-alerts, .feed, .mail-list { padding-left: 15px; padding-right: 15px; }
+    .panel-foot { padding-left: 15px; padding-right: 15px; }
+    .search { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-notice" id="dataNotice">디자인 검토용 목업 · 화면의 이름과 숫자는 모두 가상 데이터입니다.</div>
+
+<main class="dashboard">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">YJ EXECUTIVE</p>
+      <h1>경영 대시보드</h1>
+      <p class="subtitle">씽크와이즈 협업 현황과 최근 안 읽은 메일을 한눈에 봅니다.</p>
+    </div>
+    <div class="sync-panel" aria-label="데이터 갱신 상태">
+      <div class="secure"><span class="secure-dot"></span>비공개 HTTPS 연결</div>
+      <div class="sync-row"><span>씽크와이즈 · 1분 주기</span><strong class="tabular" id="thinkwiseUpdated">11:34 갱신</strong></div>
+      <div class="sync-row"><span>메일 · 5분 주기</span><strong class="tabular" id="mailUpdated">11:30 갱신</strong></div>
+      <button type="button" class="settings-button">분류 기준 설정</button>
+    </div>
+  </header>
+
+  <section class="panel visual-summary" aria-label="핵심 현황 차트">
+    <article class="summary-chart">
+      <h2 class="chart-title">씽크와이즈 최근 활동</h2>
+      <p class="chart-subtitle">최근 15분 활동 / 최근 30일 사용자</p>
+      <div class="activity-chart">
+        <svg class="ring-svg" viewBox="0 0 140 140" role="img" aria-labelledby="activity-chart-title activity-chart-desc">
+          <title id="activity-chart-title">최근 활동 사용자 비율</title>
+          <desc id="activity-chart-desc">최근 30일 사용자 7명 중 최근 15분 내 활동한 사용자는 4명, 57퍼센트입니다.</desc>
+          <circle class="ring-track" cx="70" cy="70" r="54"></circle>
+          <circle class="ring-segment ring-activity" id="activityRing" cx="70" cy="70" r="54" pathLength="100" stroke-dasharray="57.1 42.9"></circle>
+          <text class="ring-number" id="activityRatio" x="70" y="68">4/7</text>
+          <text class="ring-unit" x="70" y="87">최근 활동</text>
+        </svg>
+        <div class="activity-copy"><strong id="activityPercent">57%</strong><span id="activityCopy">4명이 지금<br>씽크와이즈에서 활동 중</span></div>
+      </div>
+    </article>
+
+    <article class="summary-chart">
+      <h2 class="chart-title">프로젝트 현재 상태</h2>
+      <p class="chart-subtitle" id="projectChartSubtitle">수동 표시가 자동 분류보다 우선 · 전체 87건</p>
+      <div class="status-chart-layout">
+        <svg class="ring-svg status-ring" viewBox="0 0 160 160" role="img" aria-labelledby="status-chart-title status-chart-desc">
+          <title id="status-chart-title">프로젝트 상태 분포</title>
+          <desc id="status-chart-desc">활발 24건, 둔화 4건, 정체 5건, 오래 멈춤 52건, 완료 2건입니다.</desc>
+          <circle class="ring-track" cx="80" cy="80" r="62"></circle>
+          <circle class="ring-segment ring-active" data-status-segment="active" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="26.9 73.1" stroke-dashoffset="0"></circle>
+          <circle class="ring-segment ring-slow" data-status-segment="slowing" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="4.0 96" stroke-dashoffset="-27.6"></circle>
+          <circle class="ring-segment ring-idle" data-status-segment="idle" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="5.1 94.9" stroke-dashoffset="-32.2"></circle>
+          <circle class="ring-segment ring-dormant" data-status-segment="dormant" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="59.2 40.8" stroke-dashoffset="-37.9"></circle>
+          <circle class="ring-segment ring-running" data-status-segment="running" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="0 100" stroke-dashoffset="-97.7"></circle>
+          <circle class="ring-segment ring-done" data-status-segment="done" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="1.7 98.3" stroke-dashoffset="-97.7"></circle>
+          <circle class="ring-segment ring-hold" data-status-segment="hold" cx="80" cy="80" r="62" pathLength="100" stroke-dasharray="0 100" stroke-dashoffset="-100"></circle>
+          <text class="ring-number" id="projectTotal" x="80" y="78">87</text>
+          <text class="ring-unit" x="80" y="98">전체 프로젝트</text>
+        </svg>
+        <div class="chart-legend" aria-label="프로젝트 상태별 건수">
+          <div class="legend-item"><span class="legend-dot active"></span><span>활발</span><strong data-status-count="active">24</strong></div>
+          <div class="legend-item"><span class="legend-dot slow"></span><span>둔화</span><strong data-status-count="slowing">4</strong></div>
+          <div class="legend-item"><span class="legend-dot idle"></span><span>정체</span><strong data-status-count="idle">5</strong></div>
+          <div class="legend-item"><span class="legend-dot dormant"></span><span>오래 멈춤</span><strong data-status-count="dormant">52</strong></div>
+          <div class="legend-item"><span class="legend-dot running"></span><span>진행</span><strong data-status-count="running">0</strong></div>
+          <div class="legend-item"><span class="legend-dot done"></span><span>완료</span><strong data-status-count="done">2</strong></div>
+          <div class="legend-item"><span class="legend-dot hold"></span><span>보류</span><strong data-status-count="hold">0</strong></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="summary-chart">
+      <h2 class="chart-title">최근 안 읽은 메일</h2>
+      <p class="chart-subtitle">3개 계정 통합 · 5분 주기</p>
+      <div class="mail-total"><strong id="mailTotal">20</strong><span>건</span></div>
+      <div class="mail-stack" id="mailStack" role="img" aria-label="다우오피스 12건, Gmail 5건, 네이버 3건">
+        <span class="mail-stack-daou" data-mail-segment="daou"></span><span class="mail-stack-gmail" data-mail-segment="gmail"></span><span class="mail-stack-naver" data-mail-segment="naver"></span>
+      </div>
+      <div class="mail-legend">
+        <div class="mail-legend-row"><span class="legend-dot daou"></span><span>다우오피스</span><strong data-mail-count="daou">12</strong></div>
+        <div class="mail-legend-row"><span class="legend-dot gmail"></span><span>Gmail</span><strong data-mail-count="gmail">5</strong></div>
+        <div class="mail-legend-row"><span class="legend-dot naver"></span><span>네이버</span><strong data-mail-count="naver">3</strong></div>
+      </div>
+    </article>
+  </section>
+
+  <div class="focus-grid">
+    <section class="panel" aria-labelledby="attention-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="attention-title">먼저 확인할 프로젝트</h2>
+          <p>14~29일 정체된 프로젝트 · 오래 멈춘 순</p>
+        </div>
+        <span class="count-badge" id="idleProjectCount">5</span>
+      </div>
+      <ul class="project-alerts" id="idleProjectList">
+        <li class="project-alert">
+          <div><div class="item-title">안양 덕천지구 아파트 수변전 설비</div><div class="item-meta">이현우 · 참여 4명 · 07-19 최종 수정</div></div>
+          <div class="idle-days">26일<small>정체</small></div>
+          <select class="status-select" aria-label="안양 덕천지구 프로젝트 상태">
+            <option selected>상태 지정</option><option>진행</option><option>완료</option><option>보류</option>
+          </select>
+        </li>
+        <li class="project-alert">
+          <div><div class="item-title">부천 공장 동력설비 증설</div><div class="item-meta">임재혁 · 참여 3명 · 07-22 최종 수정</div></div>
+          <div class="idle-days">23일<small>정체</small></div>
+          <select class="status-select" aria-label="부천 공장 프로젝트 상태">
+            <option selected>상태 지정</option><option>진행</option><option>완료</option><option>보류</option>
+          </select>
+        </li>
+        <li class="project-alert">
+          <div><div class="item-title">2026 상반기 안전관리 계획</div><div class="item-meta">정다은 · 참여 8명 · 07-24 최종 수정</div></div>
+          <div class="idle-days">21일<small>정체</small></div>
+          <select class="status-select" aria-label="안전관리 계획 프로젝트 상태">
+            <option selected>상태 지정</option><option>진행</option><option>완료</option><option>보류</option>
+          </select>
+        </li>
+        <li class="project-alert">
+          <div><div class="item-title">김포 물류센터 조명·전열 설계</div><div class="item-meta">최민석 · 참여 3명 · 07-28 최종 수정</div></div>
+          <div class="idle-days">17일<small>정체</small></div>
+          <select class="status-select" aria-label="김포 물류센터 프로젝트 상태">
+            <option selected>상태 지정</option><option>진행</option><option>완료</option><option>보류</option>
+          </select>
+        </li>
+        <li class="project-alert">
+          <div><div class="item-title">하남 오피스텔 소방전기 감리</div><div class="item-meta">강태윤 · 참여 3명 · 07-30 최종 수정</div></div>
+          <div class="idle-days">15일<small>정체</small></div>
+          <select class="status-select" aria-label="하남 오피스텔 프로젝트 상태">
+            <option selected>상태 지정</option><option>진행</option><option>완료</option><option>보류</option>
+          </select>
+        </li>
+      </ul>
+      <div class="panel-foot"><span>완료 표시를 취소하면 자동 분류로 돌아갑니다.</span><a class="text-link" href="#projects">전체 프로젝트 보기 →</a></div>
+    </section>
+
+    <div class="right-stack">
+      <section class="panel" aria-labelledby="edit-title">
+        <div class="panel-head">
+          <div><h2 id="edit-title">오늘 건드린 내용</h2><p>씽크와이즈 최근 변경 · 1분 주기</p></div>
+        </div>
+        <ul class="feed" id="recentEditList">
+          <li><span class="action-label action-add">추가</span><div><div class="item-title">3층 분전반 결선 완료</div><div class="item-meta">박준호 · 삼성 평택 3기</div></div><time class="row-time">11:19</time></li>
+          <li><span class="action-label action-edit">수정</span><div><div class="item-title">케이블 트레이 규격 변경 검토</div><div class="item-meta">이현우 · 시흥 배곧 상가</div></div><time class="row-time">11:15</time></li>
+          <li><span class="action-label action-link">연결</span><div><div class="item-title">8월_기성내역서.xlsx</div><div class="item-meta">정다은 · 자재 단가 협상</div></div><time class="row-time">11:14</time></li>
+          <li><span class="action-label action-move">이동</span><div><div class="item-title">조명 배치도 검토</div><div class="item-meta">최민석 · 광명 KTX 역사</div></div><time class="row-time">11:12</time></li>
+        </ul>
+      </section>
+
+      <section class="panel" aria-labelledby="mail-title">
+        <div class="panel-head">
+          <div><h2 id="mail-title">최근 안 읽은 메일</h2><p id="mailCardSubtitle">3개 계정 통합 · 11:30 갱신</p></div>
+          <span class="count-badge" id="mailCardCount">20</span>
+        </div>
+        <ul class="mail-list" id="mailList">
+          <li><span class="account account-daou">다우</span><a href="#"><div class="item-title">8월 기성 청구서 송부의 건</div><div class="item-meta">(주)한전기업 김상무</div></a><time class="row-time">10:22</time></li>
+          <li><span class="account account-daou">다우</span><a href="#"><div class="item-title">덕천지구 인허가 보완 요청</div><div class="item-meta">안양시청 전기과</div></a><time class="row-time">09:48</time></li>
+          <li><span class="account account-gmail">G</span><a href="#"><div class="item-title">케이블 단가 인상 안내</div><div class="item-meta">대한전선 영업팀</div></a><time class="row-time">09:15</time></li>
+          <li><span class="account account-naver">N</span><a href="#"><div class="item-title">하반기 교육 일정 안내</div><div class="item-meta">한국전기공사협회</div></a><time class="row-time">08:40</time></li>
+        </ul>
+        <div class="panel-foot"><span>제목을 누르면 해당 계정의 받은편지함을 엽니다.</span><a class="text-link" href="#">받은편지함 열기 →</a></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel project-board" id="projects" aria-labelledby="projects-title">
+    <div class="panel-head">
+      <div><h2 id="projects-title">전체 프로젝트</h2><p>현재 상태 기준 · 수동 표시가 자동 분류보다 우선</p></div>
+    </div>
+    <div class="board-tools">
+      <div class="filters" aria-label="프로젝트 상태 필터">
+        <button type="button" class="filter" data-filter="all" aria-pressed="true">전체 87</button>
+        <button type="button" class="filter" data-filter="active" aria-pressed="false">활발 24</button>
+        <button type="button" class="filter" data-filter="slowing" aria-pressed="false">둔화 4</button>
+        <button type="button" class="filter" data-filter="idle" aria-pressed="false">정체 5</button>
+        <button type="button" class="filter" data-filter="dormant" aria-pressed="false">오래 멈춤 52</button>
+        <button type="button" class="filter" data-filter="running" aria-pressed="false">진행 0</button>
+        <button type="button" class="filter" data-filter="done" aria-pressed="false">완료 2</button>
+        <button type="button" class="filter" data-filter="hold" aria-pressed="false">보류 0</button>
+      </div>
+      <label>
+        <span class="sr-only">프로젝트 검색</span>
+        <input id="projectSearch" class="search" type="search" placeholder="프로젝트명 또는 담당자 검색">
+      </label>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>프로젝트</th><th>현재 상태</th><th>담당</th><th>최종 수정</th><th>상태 변경</th></tr></thead>
+        <tbody id="projectRows">
+          <tr data-status="active" data-search="삼성 평택 3기 전기공사 박준호"><td><strong>삼성 평택 3기 전기공사</strong></td><td><span class="state state-active">활발</span></td><td>박준호</td><td class="tabular">오늘 10:20</td><td><select class="status-select" aria-label="삼성 평택 프로젝트 상태"><option selected>자동 유지</option><option>진행</option><option>완료</option><option>보류</option></select></td></tr>
+          <tr data-status="active" data-search="시흥 배곧 상가 전기 인입 이현우"><td><strong>시흥 배곧 상가 전기 인입</strong></td><td><span class="state state-active">활발</span></td><td>이현우</td><td class="tabular">오늘 09:57</td><td><select class="status-select" aria-label="시흥 배곧 프로젝트 상태"><option selected>자동 유지</option><option>진행</option><option>완료</option><option>보류</option></select></td></tr>
+          <tr data-status="slowing" data-search="인천 공장 전력 품질 진단 임재혁"><td><strong>인천 공장 전력 품질 진단</strong></td><td><span class="state state-slow">둔화</span></td><td>임재혁</td><td class="tabular">08-04</td><td><select class="status-select" aria-label="인천 공장 프로젝트 상태"><option selected>자동 유지</option><option>진행</option><option>완료</option><option>보류</option></select></td></tr>
+          <tr data-status="idle" data-search="안양 덕천지구 아파트 수변전 설비 이현우"><td><strong>안양 덕천지구 아파트 수변전 설비</strong></td><td><span class="state state-idle">정체</span></td><td>이현우</td><td class="tabular">07-19</td><td><select class="status-select" aria-label="안양 덕천지구 프로젝트 상태"><option selected>자동 유지</option><option>진행</option><option>완료</option><option>보류</option></select></td></tr>
+          <tr data-status="dormant" data-search="2024 공장동 수전설비 보수 한지우"><td><strong>2024 공장동 수전설비 보수</strong></td><td><span class="state state-dormant">오래 멈춤</span></td><td>한지우</td><td class="tabular">2024-11-08</td><td><select class="status-select" aria-label="공장동 수전설비 프로젝트 상태"><option selected>자동 유지</option><option>진행</option><option>완료</option><option>보류</option></select></td></tr>
+          <tr data-status="done" data-search="본사 사옥 전기설비 정기점검 강태윤"><td><strong>본사 사옥 전기설비 정기점검</strong></td><td><span class="state state-done">완료</span></td><td>강태윤</td><td class="tabular">08-12</td><td><select class="status-select" aria-label="본사 사옥 프로젝트 상태"><option>자동으로 복귀</option><option>진행</option><option selected>완료</option><option>보류</option></select></td></tr>
+        </tbody>
+      </table>
+      <div id="emptyMessage" class="empty-message">조건에 맞는 프로젝트가 없습니다.</div>
+    </div>
+    <div class="panel-foot"><span>현재 6건 미리보기 · 운영 화면에서는 전체 87건을 검색할 수 있습니다.</span><a class="text-link" href="#">전체 목록 펼치기 →</a></div>
+    <details class="criteria"><summary>분류 기준 보기</summary><p>마지막 수정일 기준으로 활발 7일 이내, 둔화 8~13일, 정체 14~29일, 오래 멈춤 30일 이상으로 계산합니다. 완료·진행·보류 표시가 있으면 현재 상태에 우선 적용하며, 표시를 취소하면 자동 분류로 돌아갑니다.</p></details>
+  </section>
+
+  <section class="panel online-strip" aria-labelledby="online-title">
+    <div class="online-copy"><h2 id="online-title">씽크와이즈 최근 활동</h2><p id="onlineSummary">최근 15분 이내 활동 · 최근 30일 사용자 7명 중 4명</p></div>
+    <div class="people" id="onlinePeople" aria-label="최근 활동 사용자"><span class="person">박준호 · 11:19</span><span class="person">이현우 · 11:15</span><span class="person">정다은 · 11:14</span><span class="person">최민석 · 11:12</span></div>
+  </section>
+</main>
+
+<script>
+  (() => {
+    const filters = [...document.querySelectorAll('.filter')];
+    const search = document.getElementById('projectSearch');
+    const empty = document.getElementById('emptyMessage');
+    let activeFilter = 'all';
+
+    const statusMeta = {
+      active:  { label: '활발', className: 'state-active' },
+      slowing: { label: '둔화', className: 'state-slow' },
+      idle:    { label: '정체', className: 'state-idle' },
+      dormant: { label: '오래 멈춤', className: 'state-dormant' },
+      running: { label: '진행', className: 'state-running' },
+      done:    { label: '완료', className: 'state-done' },
+      hold:    { label: '보류', className: 'state-hold' }
+    };
+    const statusOrder = ['active', 'slowing', 'idle', 'dormant', 'running', 'done', 'hold'];
+    const actionMeta = {
+      ADD: ['추가', 'action-add'], EDIT: ['수정', 'action-edit'],
+      DEL: ['삭제', 'action-link'], MOVE: ['이동', 'action-move'],
+      PASTE: ['붙여넣기', 'action-add'], LINK: ['연결', 'action-link']
+    };
+    const accountMeta = {
+      daou: ['다우', 'account-daou'], gmail: ['G', 'account-gmail'], naver: ['N', 'account-naver']
+    };
+
+    function setText(id, value) {
+      const target = document.getElementById(id);
+      if (target) target.textContent = String(value);
+    }
+
+    function asDate(value) {
+      const date = value ? new Date(value) : null;
+      return date && !Number.isNaN(date.getTime()) ? date : null;
+    }
+
+    function timeText(value) {
+      const date = asDate(value);
+      return date ? new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(date) : '—';
+    }
+
+    function dateText(value) {
+      const date = asDate(value);
+      if (!date) return '—';
+      const parts = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit'
+      }).formatToParts(date);
+      const month = parts.find((part) => part.type === 'month')?.value || '';
+      const day = parts.find((part) => part.type === 'day')?.value || '';
+      return `${month}-${day}`;
+    }
+
+    function renderActivity(kpi) {
+      const online = Number(kpi.online_now || 0);
+      const users = Number(kpi.active_users_30d || 0);
+      const percent = users ? Math.min(100, (online / users) * 100) : 0;
+      document.getElementById('activityRing').setAttribute('stroke-dasharray', `${percent.toFixed(1)} ${(100 - percent).toFixed(1)}`);
+      setText('activityRatio', `${online}/${users}`);
+      setText('activityPercent', `${Math.round(percent)}%`);
+      const copy = document.getElementById('activityCopy');
+      copy.replaceChildren(document.createTextNode(`${online}명이 지금`), document.createElement('br'), document.createTextNode('씽크와이즈에서 활동 중'));
+      document.getElementById('activity-chart-desc').textContent = `최근 30일 사용자 ${users}명 중 최근 15분 내 활동한 사용자는 ${online}명, ${Math.round(percent)}퍼센트입니다.`;
+    }
+
+    function renderProjectChart(kpi) {
+      const total = Number(kpi.total_projects || 0);
+      setText('projectTotal', total);
+      setText('projectChartSubtitle', `수동 표시가 자동 분류보다 우선 · 전체 ${total}건`);
+      let offset = 0;
+      const description = [];
+      statusOrder.forEach((status) => {
+        const count = Number(kpi[status] || 0);
+        const percent = total ? (count / total) * 100 : 0;
+        const gap = count ? Math.min(0.7, percent * 0.25) : 0;
+        const segment = document.querySelector(`[data-status-segment="${status}"]`);
+        segment.setAttribute('stroke-dasharray', `${Math.max(0, percent - gap).toFixed(2)} ${(100 - Math.max(0, percent - gap)).toFixed(2)}`);
+        segment.setAttribute('stroke-dashoffset', String(-offset));
+        offset += percent;
+        const countTarget = document.querySelector(`[data-status-count="${status}"]`);
+        if (countTarget) countTarget.textContent = String(count);
+        if (count) description.push(`${statusMeta[status].label} ${count}건`);
+      });
+      document.getElementById('status-chart-desc').textContent = `${description.join(', ')}입니다.`;
+      filters.forEach((button) => {
+        const status = button.dataset.filter;
+        const label = status === 'all' ? '전체' : statusMeta[status].label;
+        button.textContent = `${label} ${status === 'all' ? total : Number(kpi[status] || 0)}`;
+      });
+    }
+
+    function renderMail(mail) {
+      const counts = { daou: 0, gmail: 0, naver: 0, ...(mail.unread_by_account || {}) };
+      const total = Number(mail.unread_total || 0);
+      setText('mailTotal', total);
+      setText('mailCardCount', total);
+      setText('mailUpdated', mail.fetched_at ? `${timeText(mail.fetched_at)} 갱신` : '연동 준비 중');
+      setText('mailCardSubtitle', mail.fetched_at ? `3개 계정 통합 · ${timeText(mail.fetched_at)} 갱신` : '3개 계정 통합 · 연동 준비 중');
+      document.getElementById('mailStack').setAttribute('aria-label', `다우오피스 ${counts.daou}건, Gmail ${counts.gmail}건, 네이버 ${counts.naver}건`);
+      Object.entries(counts).forEach(([account, count]) => {
+        const segment = document.querySelector(`[data-mail-segment="${account}"]`);
+        const target = document.querySelector(`[data-mail-count="${account}"]`);
+        if (segment) segment.style.flex = String(Math.max(Number(count), total ? 0.001 : 1));
+        if (target) target.textContent = String(count);
+      });
+      const list = document.getElementById('mailList');
+      list.replaceChildren();
+      (mail.items || []).slice(0, 5).forEach((item) => {
+        const row = document.createElement('li');
+        const badge = document.createElement('span');
+        const [accountLabel, accountClass] = accountMeta[item.account] || ['?', 'account-daou'];
+        badge.className = `account ${accountClass}`;
+        badge.textContent = accountLabel;
+        const link = document.createElement('a');
+        link.href = item.mailbox_url || '#';
+        const title = document.createElement('div');
+        title.className = 'item-title';
+        title.textContent = item.subject || '(제목 없음)';
+        const sender = document.createElement('div');
+        sender.className = 'item-meta';
+        sender.textContent = item.sender || '발신자 없음';
+        link.append(title, sender);
+        const time = document.createElement('time');
+        time.className = 'row-time';
+        time.textContent = timeText(item.at);
+        row.append(badge, link, time);
+        list.append(row);
+      });
+      if (!list.children.length) {
+        const row = document.createElement('li');
+        row.textContent = mail.error ? '메일 갱신에 실패했습니다.' : '안 읽은 메일이 없습니다.';
+        list.append(row);
+      }
+    }
+
+    function makeStatusSelect(project, enabled = false) {
+      const select = document.createElement('select');
+      select.className = 'status-select';
+      select.setAttribute('aria-label', `${project.title} 상태`);
+      [['', '자동 유지'], ['running', '진행'], ['done', '완료'], ['hold', '보류']].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.append(option);
+      });
+      select.value = project.mark || '';
+      select.disabled = !enabled;
+      if (!enabled) select.title = '상태 저장은 Phase 3에서 활성화됩니다.';
+      return select;
+    }
+
+    function renderIdleProjects(projects) {
+      const list = document.getElementById('idleProjectList');
+      list.replaceChildren();
+      setText('idleProjectCount', projects.length);
+      projects.forEach((project) => {
+        const row = document.createElement('li');
+        row.className = 'project-alert';
+        const main = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'item-title';
+        title.textContent = project.title;
+        const meta = document.createElement('div');
+        meta.className = 'item-meta';
+        meta.textContent = `${project.owner || '담당 미확인'} · 참여 ${project.members}명 · ${dateText(project.last_touch)} 최종 수정`;
+        main.append(title, meta);
+        const days = document.createElement('div');
+        days.className = 'idle-days';
+        days.append(document.createTextNode(`${project.idle_days}일`));
+        const small = document.createElement('small');
+        small.textContent = '정체';
+        days.append(small);
+        row.append(main, days, makeStatusSelect(project));
+        list.append(row);
+      });
+    }
+
+    function renderRecentEdits(items) {
+      const list = document.getElementById('recentEditList');
+      list.replaceChildren();
+      (items || []).slice(0, 6).forEach((item) => {
+        const row = document.createElement('li');
+        const badge = document.createElement('span');
+        const [label, className] = actionMeta[item.gubun] || [item.gubun, 'action-move'];
+        badge.className = `action-label ${className}`;
+        badge.textContent = label;
+        const main = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'item-title';
+        title.textContent = item.detail;
+        const meta = document.createElement('div');
+        meta.className = 'item-meta';
+        meta.textContent = `${item.who} · ${item.project || '프로젝트 미확인'}`;
+        main.append(title, meta);
+        const time = document.createElement('time');
+        time.className = 'row-time';
+        time.textContent = timeText(item.at);
+        row.append(badge, main, time);
+        list.append(row);
+      });
+      if (!list.children.length) {
+        const row = document.createElement('li');
+        row.textContent = '오늘 변경 기록이 없습니다.';
+        list.append(row);
+      }
+    }
+
+    function renderProjectRows(projects) {
+      const body = document.getElementById('projectRows');
+      body.replaceChildren();
+      projects.forEach((project) => {
+        const row = document.createElement('tr');
+        row.dataset.status = project.current_status;
+        row.dataset.search = `${project.title} ${project.owner || ''}`.toLocaleLowerCase('ko-KR');
+        const titleCell = document.createElement('td');
+        const title = document.createElement('strong');
+        title.textContent = project.title;
+        titleCell.append(title);
+        const statusCell = document.createElement('td');
+        const status = document.createElement('span');
+        const meta = statusMeta[project.current_status] || statusMeta.dormant;
+        status.className = `state ${meta.className}`;
+        status.textContent = meta.label;
+        statusCell.append(status);
+        const owner = document.createElement('td');
+        owner.textContent = project.owner || '미확인';
+        const touched = document.createElement('td');
+        touched.className = 'tabular';
+        touched.textContent = project.idle_days === 0 ? `오늘 ${timeText(project.last_touch)}` : dateText(project.last_touch);
+        const action = document.createElement('td');
+        action.append(makeStatusSelect(project));
+        row.append(titleCell, statusCell, owner, touched, action);
+        body.append(row);
+      });
+      updateRows();
+    }
+
+    function renderOnline(kpi, users) {
+      setText('onlineSummary', `최근 15분 이내 활동 · 최근 30일 사용자 ${kpi.active_users_30d}명 중 ${kpi.online_now}명`);
+      const people = document.getElementById('onlinePeople');
+      people.replaceChildren();
+      (users || []).forEach((user) => {
+        const person = document.createElement('span');
+        person.className = 'person';
+        person.textContent = `${user.name} · ${timeText(user.at)}`;
+        people.append(person);
+      });
+    }
+
+    function renderDashboard(data, demoMode) {
+      renderActivity(data.kpi);
+      renderProjectChart(data.kpi);
+      renderMail(data.mail || {});
+      renderIdleProjects(data.idle_projects || []);
+      renderRecentEdits(data.recent_edits || []);
+      renderProjectRows(data.projects || []);
+      renderOnline(data.kpi, data.online_users || []);
+      setText('thinkwiseUpdated', `${timeText(data.generated_at)} 갱신`);
+      const notice = document.getElementById('dataNotice');
+      notice.className = `mock-notice ${data.stale ? 'is-stale' : 'is-live'}`;
+      notice.textContent = data.stale
+        ? `갱신 실패 · 이전 데이터를 표시하고 있습니다.`
+        : demoMode
+          ? '개발 모드 · API에 연결된 가상 데이터입니다.'
+          : '실데이터 연결됨 · 모든 수치는 마지막 갱신 시점 기준입니다.';
+    }
+
+    function updateRows() {
+      const query = search.value.trim().toLocaleLowerCase('ko-KR');
+      let visible = 0;
+      [...document.querySelectorAll('#projectRows tr')].forEach((row) => {
+        const matchesFilter = activeFilter === 'all' || row.dataset.status === activeFilter;
+        const matchesQuery = !query || row.dataset.search.toLocaleLowerCase('ko-KR').includes(query);
+        row.hidden = !(matchesFilter && matchesQuery);
+        if (!row.hidden) visible += 1;
+      });
+      empty.style.display = visible ? 'none' : 'block';
+    }
+
+    filters.forEach((button) => {
+      button.addEventListener('click', () => {
+        activeFilter = button.dataset.filter;
+        filters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        updateRows();
+      });
+    });
+
+    search.addEventListener('input', updateRows);
+
+    async function loadDashboard() {
+      if (window.location.protocol === 'file:') return;
+      try {
+        const [dashboardResponse, healthResponse] = await Promise.all([
+          fetch('/api/dashboard', { cache: 'no-store' }),
+          fetch('/api/health', { cache: 'no-store' })
+        ]);
+        if (!dashboardResponse.ok || !healthResponse.ok) throw new Error('dashboard unavailable');
+        const [dashboard, health] = await Promise.all([dashboardResponse.json(), healthResponse.json()]);
+        renderDashboard(dashboard, Boolean(health.demo_mode));
+      } catch (_error) {
+        const notice = document.getElementById('dataNotice');
+        notice.className = 'mock-notice is-stale';
+        notice.textContent = '대시보드 API에 연결하지 못했습니다. 마지막 화면을 유지합니다.';
+      }
+    }
+
+    loadDashboard();
+    if (window.location.protocol !== 'file:') window.setInterval(loadDashboard, 60000);
+  })();
+</script>
+</body>
+</html>
