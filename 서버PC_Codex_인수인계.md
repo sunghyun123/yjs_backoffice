@@ -94,9 +94,21 @@ Phase 상태:
 
 ### 대시보드 최신 코드가 서버에 실제로 있는지 확인
 
-작성 시점 개발 PC의 `yjs_backoffice` 최신 구현은 기준 커밋 `66ebb64` 위에 아직 커밋되지 않은 변경을 포함한다. 따라서 서버에서 단순히 `origin/main`만 clone하면 최신 대시보드 코드와 이 문서가 빠질 수 있다.
+최신 구현은 원격 브랜치 `agent/management-dashboard-delivery`에 게시되어 있으며 구현 기준 커밋은 `87fa8e9`다. Draft PR은 `sunghyun123/yjs_backoffice`의 `#2`다. 아직 `main`에 병합하지 않았으므로 서버에서 단순히 기본 브랜치만 clone하면 최신 코드와 이 문서가 빠질 수 있다.
 
 반면 `thinkwise-wiki`는 작성 시점 로컬 작업 트리가 깨끗했고 `main` 커밋 `9d25960`에서 `origin/main`을 추적하고 있었다. 이는 마지막으로 알고 있는 원격 상태이며, 서버에서는 다시 확인한다.
+
+서버에서는 다음처럼 정확한 게시 브랜치를 받는 것이 현재 권장 경로다. 이미 폴더가 있다면 덮어쓰거나 초기화하지 말고 현재 상태를 먼저 확인한다.
+
+```powershell
+$InstallRoot = "C:\YJS"
+New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
+git clone --branch agent/management-dashboard-delivery --single-branch `
+  https://github.com/sunghyun123/yjs_backoffice.git `
+  (Join-Path $InstallRoot "yjs_backoffice")
+git clone https://github.com/sunghyun123/thinkwise-wiki.git `
+  (Join-Path $InstallRoot "thinkwise-wiki")
+```
 
 서버에서 아래 필수 파일을 먼저 검사한다.
 
@@ -125,12 +137,7 @@ if ($missing) {
 }
 ```
 
-하나라도 없으면 구현을 다시 만들거나 오래된 코드로 배포하지 않는다. 다음 중 하나로 최신 작업 트리를 먼저 전달한다.
-
-1. 권장: 개발 PC에서 변경을 검토해 커밋·push한 뒤 서버에서 그 브랜치/커밋을 받는다.
-2. 긴급 대안: 개발 PC의 현재 작업 트리를 서버에 복사한다. `.env`, `.venv`, `data/*.db`, 로그는 복사하지 않고 서버에서 새로 구성한다.
-
-이 전달 문제를 해결하기 전에는 납품 작업을 진행하지 않는다.
+필수 파일이 하나라도 없거나 현재 브랜치가 다르면 구현을 다시 만들거나 오래된 코드로 배포하지 않는다. `git status -sb`와 `git log -1 --oneline`을 확인한 뒤 위 게시 브랜치를 다시 받아야 한다. PR이 `main`에 병합된 사실을 원격에서 확인한 이후에만 기본 브랜치 clone으로 대체할 수 있다.
 
 ## 5. 절대 위반하지 않을 안전 원칙
 
