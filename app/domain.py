@@ -22,12 +22,17 @@ class StatusThresholds(BaseModel):
             raise ValueError("상태 기준일은 active < idle < dormant 순서여야 합니다.")
 
 
+class ProjectMarkUpdate(BaseModel):
+    mark: ManualStatus
+    memo: str = Field(default="", max_length=500)
+
+
 class Project(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     tree_cnt: int = 0
     last_touch: datetime
@@ -40,7 +45,7 @@ class Project(BaseModel):
 class IdleProject(BaseModel):
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     last_touch: datetime
     idle_days: int = Field(ge=0)
@@ -145,7 +150,7 @@ def idle_project_list(projects: list[Project]) -> list[IdleProject]:
         IdleProject(
             hashfname=project.hashfname,
             title=project.title,
-            owner=project.owner,
+            creator=project.creator,
             members=project.members,
             last_touch=project.last_touch,
             idle_days=project.idle_days,

@@ -6,6 +6,7 @@ from typing import Any
 from app.config import Settings
 from app.domain import (
     DashboardSnapshot,
+    ManualStatus,
     MailItem,
     MailSnapshot,
     OnlineUser,
@@ -18,6 +19,8 @@ from app.domain import (
     idle_project_list,
 )
 from app.repository import DashboardRepository, Row, require_datetime
+from app.mail import MailCollector
+from app.state_store import DashboardStateStore
 
 
 def kst_datetime(value: datetime, settings: Settings) -> datetime:
@@ -35,15 +38,25 @@ class DashboardService:
         self,
         repository: DashboardRepository,
         settings: Settings,
+        state_store: DashboardStateStore,
+        mail_collector: MailCollector | None = None,
         thresholds: StatusThresholds | None = None,
     ) -> None:
         self._repository = repository
         self._settings = settings
-        self._thresholds = thresholds or StatusThresholds()
+        self._state_store = state_store
+        self._mail_collector = mail_collector
+        self._thresholds = thresholds or state_store.get_thresholds()
 
     def load_core(self, *, recent_edits: list[RecentEdit] | None = None) -> DashboardSnapshot:
         now = datetime.now(self._settings.timezone)
-        projects = [self._project_from_row(row) for row in self._repository.fetch_projects()]
+        self._state_store.backup_if_due()
+        self._thresholds = self._state_store.get_thresholds()
+        marks = self._state_store.get_marks()
+        projects = [
+            self._project_from_row(row, marks.get(safe_text(row.get("HASHFNAME"))))
+            for row in self._repository.fetch_projects()
+        ]
         online_users = [
             self._online_user_from_row(row)
             for row in self._repository.fetch_online_users(self._thresholds.online_minutes)
@@ -73,14 +86,13 @@ class DashboardService:
             for row in self._repository.fetch_recent_edits(limit)
         ]
 
-    def _project_from_row(self, row: Row) -> Project:
+    def _project_from_row(self, row: Row, mark: ManualStatus | None = None) -> Project:
         idle_days = max(int(row.get("idle_days") or 0), 0)
         auto = classify_project(idle_days, self._thresholds)
-        mark = None  # Phase 3에서 SQLite project_mark와 결합합니다.
         return Project(
             hashfname=safe_text(row.get("HASHFNAME")),
             title=safe_text(row.get("TITLE"), "제목 없음"),
-            owner=safe_text(row.get("MEMBER_NAME")) or None,
+            creator=safe_text(row.get("CREATOR_NAME")) or None,
             members=max(int(row.get("member_cnt") or 0), 0),
             tree_cnt=max(int(row.get("TREE_CNT") or 0), 0),
             last_touch=kst_datetime(require_datetime(row, "last_touch"), self._settings),
@@ -89,6 +101,29 @@ class DashboardService:
             mark=mark,
             current_status=current_status(auto, mark),
         )
+
+    def get_thresholds(self) -> StatusThresholds:
+        return self._state_store.get_thresholds()
+
+    def set_thresholds(self, thresholds: StatusThresholds) -> None:
+        self._state_store.set_thresholds(thresholds)
+        self._thresholds = thresholds
+
+    def set_mark(self, hashfname: str, mark: ManualStatus, memo: str = "") -> None:
+        self._state_store.set_mark(hashfname, mark, memo)
+
+    def delete_mark(self, hashfname: str) -> None:
+        self._state_store.delete_mark(hashfname)
+
+    def load_mail(self) -> MailSnapshot:
+        if self._settings.app_demo_mode:
+            return self._demo_mail(datetime.now(self._settings.timezone))
+        if self._mail_collector is None:
+            return MailSnapshot(refresh_interval_sec=self._settings.mail_refresh_seconds)
+        return self._mail_collector.collect()
+
+    def close(self) -> None:
+        self._state_store.close()
 
     def _online_user_from_row(self, row: Row) -> OnlineUser:
         return OnlineUser(
@@ -166,13 +201,13 @@ class DemoRepository:
             {
                 "HASHFNAME": hashfname,
                 "TITLE": title,
-                "MEMBER_NAME": owner,
+                "CREATOR_NAME": creator,
                 "member_cnt": members,
                 "TREE_CNT": tree_cnt,
                 "last_touch": now - timedelta(days=idle_days),
                 "idle_days": idle_days,
             }
-            for hashfname, title, owner, members, tree_cnt, idle_days in samples
+            for hashfname, title, creator, members, tree_cnt, idle_days in samples
         ]
 
     def fetch_online_users(self, online_minutes: int) -> list[Row]:
@@ -205,6 +240,9 @@ class DemoRepository:
             }
             for minutes, who, gubun, detail, project in samples[:limit]
         ]
+
+    def source_health(self) -> dict[str, object]:
+        return {"mode": "demo", "healthy": True}
 
     def close(self) -> None:
         return None

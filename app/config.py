@@ -34,10 +34,30 @@ class Settings(BaseSettings):
     db_password: SecretStr = SecretStr("")
     db_charset: str = "utf8"
     db_refresh_seconds: int = Field(default=60, ge=30, le=3600)
-    work_log_refresh_seconds: int = Field(default=300, ge=60, le=3600)
+    work_log_refresh_seconds: int = Field(default=60, ge=60, le=3600)
+    thinkwise_index_path: str = ""
+    thinkwise_index_max_age_seconds: int = Field(default=180, ge=60, le=3600)
 
     sqlite_path: Path = Path("data/dashboard.db")
     mail_refresh_seconds: int = Field(default=300, ge=60, le=3600)
+    mail_daou_enabled: bool = False
+    mail_daou_host: str = "imap.daouoffice.com"
+    mail_daou_port: int = Field(default=993, ge=1, le=65535)
+    mail_daou_user: str = ""
+    mail_daou_password: SecretStr = SecretStr("")
+    mail_daou_url: str = "#"
+    mail_gmail_enabled: bool = False
+    mail_gmail_host: str = "imap.gmail.com"
+    mail_gmail_port: int = Field(default=993, ge=1, le=65535)
+    mail_gmail_user: str = ""
+    mail_gmail_password: SecretStr = SecretStr("")
+    mail_gmail_url: str = "https://mail.google.com/"
+    mail_naver_enabled: bool = False
+    mail_naver_host: str = "imap.naver.com"
+    mail_naver_port: int = Field(default=993, ge=1, le=65535)
+    mail_naver_user: str = ""
+    mail_naver_password: SecretStr = SecretStr("")
+    mail_naver_url: str = "https://mail.naver.com/"
 
     @field_validator("app_timezone")
     @classmethod
@@ -52,6 +72,13 @@ class Settings(BaseSettings):
             raise ValueError("씽크와이즈 DB 연결 문자셋은 utf8이어야 합니다.")
         return "utf8"
 
+    @field_validator("app_host")
+    @classmethod
+    def enforce_loopback_binding(cls, value: str) -> str:
+        if value.strip() != "127.0.0.1":
+            raise ValueError("대시보드는 보안을 위해 127.0.0.1에만 바인딩해야 합니다.")
+        return "127.0.0.1"
+
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
         if self.app_trust_tailscale_headers and not self.app_allowed_tailscale_user.strip():
@@ -61,6 +88,53 @@ class Settings(BaseSettings):
         if not self.app_demo_mode:
             if not self.db_user.strip() or not self.db_password.get_secret_value():
                 raise ValueError("실데이터 모드에는 DB_USER와 DB_PASSWORD가 필요합니다.")
+        if self.app_env.strip().lower() == "production":
+            if self.app_demo_mode:
+                raise ValueError("운영 환경에서는 APP_DEMO_MODE=false여야 합니다.")
+            if not self.app_trust_tailscale_headers:
+                raise ValueError(
+                    "운영 환경에서는 Tailscale 사용자 헤더 검증을 활성화해야 합니다."
+                )
+            if not self.thinkwise_index_path.strip():
+                raise ValueError("운영 환경에서는 THINKWISE_INDEX_PATH가 필요합니다.")
+        mail_accounts = (
+            (
+                "다우오피스",
+                self.mail_daou_enabled,
+                self.mail_daou_host,
+                self.mail_daou_user,
+                self.mail_daou_password,
+                self.mail_daou_url,
+            ),
+            (
+                "Gmail",
+                self.mail_gmail_enabled,
+                self.mail_gmail_host,
+                self.mail_gmail_user,
+                self.mail_gmail_password,
+                self.mail_gmail_url,
+            ),
+            (
+                "네이버",
+                self.mail_naver_enabled,
+                self.mail_naver_host,
+                self.mail_naver_user,
+                self.mail_naver_password,
+                self.mail_naver_url,
+            ),
+        )
+        if self.mail_daou_enabled and "@" not in self.mail_daou_user:
+            raise ValueError("다우오피스 메일 사용자는 전체 메일 주소여야 합니다.")
+        for label, enabled, host, user, password, mailbox_url in mail_accounts:
+            if enabled and (
+                not host.strip()
+                or not user.strip()
+                or not password.get_secret_value()
+                or not mailbox_url.lower().startswith("https://")
+            ):
+                raise ValueError(
+                    f"{label} 메일을 활성화하려면 호스트·사용자·비밀번호·HTTPS 웹메일 주소가 필요합니다."
+                )
         return self
 
     @property
@@ -70,6 +144,16 @@ class Settings(BaseSettings):
     @property
     def resolved_sqlite_path(self) -> Path:
         path = self.sqlite_path
+        if str(path) == ":memory:":
+            return path
+        return path if path.is_absolute() else PROJECT_ROOT / path
+
+    @property
+    def resolved_thinkwise_index_path(self) -> Path | None:
+        raw_path = self.thinkwise_index_path.strip()
+        if not raw_path:
+            return None
+        path = Path(raw_path)
         return path if path.is_absolute() else PROJECT_ROOT / path
 
 
