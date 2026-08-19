@@ -9,6 +9,32 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+if (-not $AllowedTailscaleUser -and $RequireProduction) {
+    $envPath = Join-Path $projectRoot ".env"
+    if (Test-Path -LiteralPath $envPath -PathType Leaf) {
+        $line = Get-Content -Encoding UTF8 -LiteralPath $envPath | Where-Object {
+            $_ -match "^\s*APP_ALLOWED_TAILSCALE_USER\s*="
+        } | Select-Object -Last 1
+        if ($line) {
+            $AllowedTailscaleUser = ($line -split "=", 2)[1].Trim()
+            if (
+                $AllowedTailscaleUser.Length -ge 2 -and
+                (($AllowedTailscaleUser.StartsWith('"') -and $AllowedTailscaleUser.EndsWith('"')) -or
+                 ($AllowedTailscaleUser.StartsWith("'") -and $AllowedTailscaleUser.EndsWith("'")))
+            ) {
+                $AllowedTailscaleUser = $AllowedTailscaleUser.Substring(
+                    1, $AllowedTailscaleUser.Length - 2
+                )
+            }
+        }
+    }
+    if (-not $AllowedTailscaleUser) {
+        throw "APP_ALLOWED_TAILSCALE_USER is missing from the production .env file."
+    }
+}
+
 $listeners = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop
 $unsafeListener = $listeners | Where-Object { $_.LocalAddress -notin @("127.0.0.1", "::1") }
 if ($unsafeListener) {
