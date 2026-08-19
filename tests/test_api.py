@@ -76,6 +76,9 @@ def test_dashboard_page_serves_approved_mockup() -> None:
     assert "row.dataset.status !== 'dormant' || Boolean(query)" in response.text
     assert 'id="showAllProjects"' in response.text
     assert 'id="mailboxLink"' in response.text
+    assert 'class="panel mail-panel"' in response.text
+    assert "(mail.items || []).slice(0, 10)" in response.text
+    assert ".mail-list {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));" in response.text
 
 
 def test_tailscale_identity_is_required_when_enabled() -> None:
