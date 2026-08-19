@@ -84,18 +84,28 @@ def test_dashboard_page_serves_approved_mockup() -> None:
 def test_tailscale_identity_is_required_when_enabled() -> None:
     settings = make_settings(
         app_trust_tailscale_headers=True,
-        app_allowed_tailscale_user="ceo@example.test",
+        app_allowed_tailscale_users="maintainer@example.test,ceo@example.test",
     )
     app = create_app(settings)
     with TestClient(app) as client:
         denied = client.get("/api/dashboard")
-        allowed = client.get(
+        maintainer_allowed = client.get(
+            "/api/dashboard",
+            headers={"Tailscale-User-Login": "maintainer@example.test"},
+        )
+        ceo_allowed = client.get(
             "/api/dashboard",
             headers={"Tailscale-User-Login": "ceo@example.test"},
         )
+        unknown_denied = client.get(
+            "/api/dashboard",
+            headers={"Tailscale-User-Login": "unknown@example.test"},
+        )
 
     assert denied.status_code == 403
-    assert allowed.status_code == 200
+    assert maintainer_allowed.status_code == 200
+    assert ceo_allowed.status_code == 200
+    assert unknown_denied.status_code == 403
     assert denied.headers["cache-control"] == "no-store"
     assert denied.headers["x-content-type-options"] == "nosniff"
     assert denied.headers["x-frame-options"] == "DENY"

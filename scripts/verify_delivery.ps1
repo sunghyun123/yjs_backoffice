@@ -5,6 +5,8 @@ param(
 
     [string]$AllowedTailscaleUser = "",
 
+    [string[]]$AllowedTailscaleUsers = @(),
+
     [switch]$RequireProduction
 )
 
@@ -35,10 +37,32 @@ function Get-DotEnvValue {
     return $value
 }
 
-if (-not $AllowedTailscaleUser -and $RequireProduction) {
-    $AllowedTailscaleUser = Get-DotEnvValue "APP_ALLOWED_TAILSCALE_USER"
-    if (-not $AllowedTailscaleUser) {
-        throw "APP_ALLOWED_TAILSCALE_USER is missing from the production .env file."
+function ConvertTo-AllowedTailscaleUsers {
+    param([string[]]$Values)
+
+    $users = @()
+    foreach ($value in $Values) {
+        foreach ($candidate in ([string]$value -split ",")) {
+            $normalized = $candidate.Trim().ToLowerInvariant()
+            if ($normalized -and $normalized -notin $users) {
+                $users += $normalized
+            }
+        }
+    }
+    return $users
+}
+
+$allowedUsers = @(ConvertTo-AllowedTailscaleUsers -Values @(
+    $AllowedTailscaleUsers
+    $AllowedTailscaleUser
+))
+if ($allowedUsers.Count -eq 0 -and $RequireProduction) {
+    $allowedUsers = @(ConvertTo-AllowedTailscaleUsers -Values @(
+        (Get-DotEnvValue "APP_ALLOWED_TAILSCALE_USERS")
+        (Get-DotEnvValue "APP_ALLOWED_TAILSCALE_USER")
+    ))
+    if ($allowedUsers.Count -eq 0) {
+        throw "APP_ALLOWED_TAILSCALE_USERS is missing from the production .env file."
     }
 }
 
@@ -49,11 +73,19 @@ if ($unsafeListener) {
 }
 
 $headers = @{}
-if ($AllowedTailscaleUser) {
-    $headers["Tailscale-User-Login"] = $AllowedTailscaleUser
+if ($allowedUsers.Count -gt 0) {
+    $headers["Tailscale-User-Login"] = $allowedUsers[0]
 }
 
 $baseUrl = "http://127.0.0.1:$Port"
+foreach ($allowedUser in $allowedUsers) {
+    $identityResponse = Invoke-WebRequest -UseBasicParsing `
+        -Uri "$baseUrl/api/health" `
+        -Headers @{ "Tailscale-User-Login" = $allowedUser }
+    if ($identityResponse.StatusCode -ne 200) {
+        throw "One or more configured Tailscale users were rejected."
+    }
+}
 $healthResponse = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/api/health" -Headers $headers
 if ($healthResponse.Headers["Cache-Control"] -ne "no-store") {
     throw "The Cache-Control=no-store security header is missing."

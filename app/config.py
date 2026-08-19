@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     app_demo_mode: bool = True
     app_timezone: str = "Asia/Seoul"
     app_trust_tailscale_headers: bool = False
+    app_allowed_tailscale_users: str = ""
+    # Backward compatibility for already-deployed single-user environments.
     app_allowed_tailscale_user: str = ""
 
     db_host: str = "127.0.0.1"
@@ -81,9 +83,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
-        if self.app_trust_tailscale_headers and not self.app_allowed_tailscale_user.strip():
+        if self.app_trust_tailscale_headers and not self.allowed_tailscale_users:
             raise ValueError(
-                "APP_TRUST_TAILSCALE_HEADERS=true이면 APP_ALLOWED_TAILSCALE_USER가 필요합니다."
+                "APP_TRUST_TAILSCALE_HEADERS=true이면 APP_ALLOWED_TAILSCALE_USERS가 필요합니다."
             )
         if not self.app_demo_mode:
             if not self.db_user.strip() or not self.db_password.get_secret_value():
@@ -136,6 +138,20 @@ class Settings(BaseSettings):
                     f"{label} 메일을 활성화하려면 호스트·사용자·비밀번호·HTTPS 웹메일 주소가 필요합니다."
                 )
         return self
+
+    @property
+    def allowed_tailscale_users(self) -> frozenset[str]:
+        values: set[str] = set()
+        for raw_value in (
+            self.app_allowed_tailscale_users,
+            self.app_allowed_tailscale_user,
+        ):
+            values.update(
+                item.strip().lower()
+                for item in raw_value.split(",")
+                if item.strip()
+            )
+        return frozenset(values)
 
     @property
     def timezone(self) -> ZoneInfo:

@@ -68,13 +68,19 @@ $requiredProductionSettings = @(
     "(?m)^APP_ENV=production\s*$",
     "(?m)^APP_HOST=127\.0\.0\.1\s*$",
     "(?m)^APP_DEMO_MODE=false\s*$",
-    "(?m)^APP_TRUST_TAILSCALE_HEADERS=true\s*$",
-    "(?m)^APP_ALLOWED_TAILSCALE_USER=\S+\s*$"
+    "(?m)^APP_TRUST_TAILSCALE_HEADERS=true\s*$"
 )
 foreach ($pattern in $requiredProductionSettings) {
     if ($dashboardEnvText -notmatch $pattern) {
         throw "Required production settings are missing from .env. See the delivery checklist."
     }
+}
+$allowedUsersConfigured = (
+    [bool](Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USERS") -or
+    [bool](Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USER")
+)
+if (-not $allowedUsersConfigured) {
+    throw "APP_ALLOWED_TAILSCALE_USERS is missing from the dashboard .env."
 }
 
 $dashboardIndexValue = Get-DotEnvValue $dashboardEnv "THINKWISE_INDEX_PATH"

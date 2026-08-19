@@ -68,8 +68,7 @@ def install_security_middleware(app: object, settings: Settings) -> None:
         response: Response | None = None
         if settings.app_trust_tailscale_headers:
             login = request.headers.get("Tailscale-User-Login", "").strip().lower()
-            allowed = settings.app_allowed_tailscale_user.strip().lower()
-            if not login or login != allowed:
+            if not login or login not in settings.allowed_tailscale_users:
                 response = JSONResponse(
                     status_code=403,
                     content={"detail": "허용되지 않은 사용자입니다."},

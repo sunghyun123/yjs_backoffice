@@ -55,6 +55,20 @@ def test_valid_production_settings_are_accepted() -> None:
     assert settings.app_demo_mode is False
 
 
+def test_multiple_tailscale_users_are_normalized_and_legacy_value_is_kept() -> None:
+    settings = make_settings(
+        app_trust_tailscale_headers=True,
+        app_allowed_tailscale_users="Maintainer@Example.test, ceo@example.test",
+        app_allowed_tailscale_user="legacy@example.test",
+    )
+
+    assert settings.allowed_tailscale_users == {
+        "maintainer@example.test",
+        "ceo@example.test",
+        "legacy@example.test",
+    }
+
+
 def test_production_requires_shared_work_log_index() -> None:
     with pytest.raises(ValidationError, match="THINKWISE_INDEX_PATH"):
         make_settings(

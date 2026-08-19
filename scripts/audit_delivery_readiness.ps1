@@ -59,6 +59,21 @@ function Get-DotEnvValue {
     return $value
 }
 
+function ConvertTo-AllowedTailscaleUsers {
+    param([string[]]$Values)
+
+    $users = @()
+    foreach ($value in $Values) {
+        foreach ($candidate in ([string]$value -split ",")) {
+            $normalized = $candidate.Trim().ToLowerInvariant()
+            if ($normalized -and $normalized -notin $users) {
+                $users += $normalized
+            }
+        }
+    }
+    return $users
+}
+
 function Test-RestrictedAcl {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -112,12 +127,16 @@ function Test-SecurityHeaders {
 $requiredFiles = @($dashboardEnv, $wikiEnv, $pythonPath)
 Add-Check "Required environment and Python files" (($requiredFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }).Count -eq 0)
 
+$allowedUsers = @(ConvertTo-AllowedTailscaleUsers -Values @(
+    (Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USERS")
+    (Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USER")
+))
 $productionChecks = @(
     (Get-DotEnvValue $dashboardEnv "APP_ENV") -eq "production",
     (Get-DotEnvValue $dashboardEnv "APP_HOST") -eq "127.0.0.1",
     (Get-DotEnvValue $dashboardEnv "APP_DEMO_MODE") -eq "false",
     (Get-DotEnvValue $dashboardEnv "APP_TRUST_TAILSCALE_HEADERS") -eq "true",
-    [bool](Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USER"),
+    ($allowedUsers.Count -gt 0),
     [bool](Get-DotEnvValue $dashboardEnv "DB_USER"),
     [bool](Get-DotEnvValue $dashboardEnv "DB_PASSWORD")
 )
@@ -193,14 +212,26 @@ $loopbackOnly = $listeners.Count -gt 0 -and (
 ).Count -eq 0
 Add-Check "Loopback-only listener" $loopbackOnly
 
-$allowedUser = Get-DotEnvValue $dashboardEnv "APP_ALLOWED_TAILSCALE_USER"
 $apiReady = $false
 $mailReady = $false
 $backupReady = $false
-if ($loopbackOnly -and $allowedUser) {
+if ($loopbackOnly -and $allowedUsers.Count -gt 0) {
     try {
-        $headers = @{ "Tailscale-User-Login" = $allowedUser }
+        $headers = @{ "Tailscale-User-Login" = $allowedUsers[0] }
         $baseUrl = "http://127.0.0.1:$Port"
+        $allAllowedUsersAccepted = $true
+        foreach ($allowedUser in $allowedUsers) {
+            $identityResponse = Invoke-WebRequest -UseBasicParsing `
+                -Uri "$baseUrl/api/health" `
+                -Headers @{ "Tailscale-User-Login" = $allowedUser } `
+                -TimeoutSec 5
+            if (
+                $identityResponse.StatusCode -ne 200 -or
+                -not (Test-SecurityHeaders $identityResponse.Headers)
+            ) {
+                $allAllowedUsersAccepted = $false
+            }
+        }
         $unauthorizedStatus = 0
         $unauthorizedHeaders = $null
         try {
@@ -218,6 +249,7 @@ if ($loopbackOnly -and $allowedUser) {
             "active", "slowing", "idle", "dormant", "running", "done", "hold"
         ) | ForEach-Object { [int]$dashboard.kpi.$_ } | Measure-Object -Sum
         $apiReady = (
+            $allAllowedUsersAccepted -and
             $unauthorizedStatus -eq 403 -and
             (Test-SecurityHeaders $unauthorizedHeaders) -and
             $health.status -eq "ok" -and
