@@ -319,10 +319,9 @@ if ($tailscalePath) {
             $serveStatus -match [regex]::Escape("127.0.0.1:$Port")
         )
         $funnelStatus = (& $tailscalePath funnel status) -join "`n"
-        $funnelDisabled = (
-            $funnelStatus -notmatch "Available on the internet" -and
-            $funnelStatus -notmatch [regex]::Escape("127.0.0.1:$Port")
-        )
+        # Recent Tailscale versions also list private Serve routes here.
+        # Funnel is public only when the CLI explicitly reports internet availability.
+        $funnelDisabled = $funnelStatus -notmatch "Available on the internet"
     } catch {
         $tailscaleReady = $false
         $deviceNameReady = $false
