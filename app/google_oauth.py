@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from app.service import DashboardService
 
 FlowFactory = Callable[..., Any]
 _ENV_WRITE_LOCK = threading.RLock()
+_PKCE_TTL_SECONDS = 600
 
 
 class GoogleOAuthManager:
@@ -33,6 +35,8 @@ class GoogleOAuthManager:
         self._service = service
         self._env_path = env_path
         self._flow_factory = flow_factory
+        self._pkce_lock = threading.RLock()
+        self._pkce_verifiers: dict[str, tuple[str, float]] = {}
 
     @property
     def configured(self) -> bool:
@@ -42,7 +46,7 @@ class GoogleOAuthManager:
         if not self.configured:
             raise RuntimeError("Google OAuth is not configured")
         state = self._service.create_google_oauth_state()
-        flow = self._flow(state=state)
+        flow = self._flow(state=state, autogenerate_code_verifier=True)
         url, returned_state = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
@@ -51,15 +55,32 @@ class GoogleOAuthManager:
         if returned_state != state:
             self._service.consume_google_oauth_state(state)
             raise RuntimeError("Google OAuth state 생성 결과가 일치하지 않습니다.")
+        code_verifier = str(getattr(flow, "code_verifier", "") or "")
+        if not code_verifier:
+            self._service.consume_google_oauth_state(state)
+            raise RuntimeError("Google OAuth PKCE 검증값을 생성하지 못했습니다.")
+        self._store_code_verifier(state, code_verifier)
         return str(url)
 
     def discard_state(self, state: str) -> bool:
-        return bool(state) and self._service.consume_google_oauth_state(state)
+        if not state:
+            return False
+        self._take_code_verifier(state)
+        return self._service.consume_google_oauth_state(state)
 
     def complete(self, state: str, code: str) -> str:
         if not state or not code or not self._service.consume_google_oauth_state(state):
             raise ValueError("유효하지 않거나 만료된 Google OAuth 요청입니다.")
-        flow = self._flow(state=state)
+        code_verifier = self._take_code_verifier(state)
+        if not code_verifier:
+            raise ValueError(
+                "Google OAuth 요청이 만료됐거나 연결 중 서버가 재시작됐습니다."
+            )
+        flow = self._flow(
+            state=state,
+            code_verifier=code_verifier,
+            autogenerate_code_verifier=False,
+        )
         flow.fetch_token(code=code)
         refresh_token = str(flow.credentials.refresh_token or "")
         if not refresh_token:
@@ -68,7 +89,13 @@ class GoogleOAuthManager:
         self._settings.google_refresh_token = SecretStr(refresh_token)
         return refresh_token
 
-    def _flow(self, *, state: str) -> Any:
+    def _flow(
+        self,
+        *,
+        state: str,
+        code_verifier: str | None = None,
+        autogenerate_code_verifier: bool,
+    ) -> Any:
         if self._flow_factory is None:
             from google_auth_oauthlib.flow import Flow
 
@@ -84,9 +111,40 @@ class GoogleOAuthManager:
                 "redirect_uris": [self._settings.google_redirect_uri],
             }
         }
-        flow = factory(client_config, scopes=list(GOOGLE_SCOPES), state=state)
+        flow = factory(
+            client_config,
+            scopes=list(GOOGLE_SCOPES),
+            state=state,
+            code_verifier=code_verifier,
+            autogenerate_code_verifier=autogenerate_code_verifier,
+        )
         flow.redirect_uri = self._settings.google_redirect_uri
         return flow
+
+    def _store_code_verifier(self, state: str, code_verifier: str) -> None:
+        now = time.monotonic()
+        with self._pkce_lock:
+            self._remove_expired_verifiers(now)
+            self._pkce_verifiers[state] = (
+                code_verifier,
+                now + _PKCE_TTL_SECONDS,
+            )
+
+    def _take_code_verifier(self, state: str) -> str:
+        now = time.monotonic()
+        with self._pkce_lock:
+            self._remove_expired_verifiers(now)
+            value = self._pkce_verifiers.pop(state, None)
+        return value[0] if value is not None and value[1] >= now else ""
+
+    def _remove_expired_verifiers(self, now: float) -> None:
+        expired = [
+            state
+            for state, (_, expires_at) in self._pkce_verifiers.items()
+            if expires_at < now
+        ]
+        for state in expired:
+            self._pkce_verifiers.pop(state, None)
 
 
 def _write_env_secret(path: Path, key: str, value: str) -> None:
