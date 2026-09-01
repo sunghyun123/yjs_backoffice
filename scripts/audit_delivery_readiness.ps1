@@ -142,6 +142,17 @@ $productionChecks = @(
 )
 Add-Check "Production, real-data, and identity settings" ($productionChecks -notcontains $false)
 
+$googleEnabled = (Get-DotEnvValue $dashboardEnv "GOOGLE_ENABLED") -eq "true"
+$googleSettingsReady = -not $googleEnabled -or (
+    [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_CLIENT_ID") -and
+    [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_CLIENT_SECRET") -and
+    [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_REFRESH_TOKEN") -and
+    (Get-DotEnvValue $dashboardEnv "GOOGLE_REDIRECT_URI").StartsWith(
+        "https://", [StringComparison]::OrdinalIgnoreCase
+    )
+)
+Add-Check "Google OAuth settings when enabled" $googleSettingsReady
+
 $indexPath = Get-DotEnvValue $dashboardEnv "THINKWISE_INDEX_PATH"
 if ($indexPath -and -not [IO.Path]::IsPathRooted($indexPath)) {
     $indexPath = Join-Path $projectRoot $indexPath
@@ -195,7 +206,7 @@ Add-Check "All three mail account settings" $allMailEnabled
 $pythonReady = $false
 if (Test-Path -LiteralPath $pythonPath -PathType Leaf) {
     try {
-        & $pythonPath -c "import sys; sys.path.insert(0, sys.argv[1]); import fastapi, pymysql, pydantic_settings, dotenv, uvicorn, app.main" $projectRoot 2>$null
+        & $pythonPath -c "import sys; sys.path.insert(0, sys.argv[1]); import fastapi, google.auth, google_auth_oauthlib, pymysql, pydantic_settings, dotenv, uvicorn, app.main" $projectRoot 2>$null
         $dashboardImportReady = $LASTEXITCODE -eq 0
         & $pythonPath -c "import sys; sys.path.insert(0, sys.argv[1]); import app.sync" $WikiRoot 2>$null
         $wikiImportReady = $LASTEXITCODE -eq 0
@@ -214,6 +225,7 @@ Add-Check "Loopback-only listener" $loopbackOnly
 
 $apiReady = $false
 $mailReady = $false
+$googleReady = $false
 $backupReady = $false
 if ($loopbackOnly -and $allowedUsers.Count -gt 0) {
     try {
@@ -245,6 +257,7 @@ if ($loopbackOnly -and $allowedUsers.Count -gt 0) {
         $pageResponse = Invoke-WebRequest -UseBasicParsing -Uri $baseUrl -Headers $headers -TimeoutSec 5
         $health = $healthResponse.Content | ConvertFrom-Json
         $dashboard = Invoke-RestMethod -Uri "$baseUrl/api/dashboard" -Headers $headers -TimeoutSec 5
+        $google = Invoke-RestMethod -Uri "$baseUrl/api/google" -Headers $headers -TimeoutSec 5
         $statusTotal = @(
             "active", "slowing", "idle", "dormant", "running", "done", "hold"
         ) | ForEach-Object { [int]$dashboard.kpi.$_ } | Measure-Object -Sum
@@ -275,19 +288,29 @@ if ($loopbackOnly -and $allowedUsers.Count -gt 0) {
             (@("daou", "gmail", "naver") | Where-Object { $_ -notin $mailAccountKeys }).Count -eq 0 -and
             $mailCountSum.Sum -eq $dashboard.mail.unread_total
         )
+        $googleReady = -not $googleEnabled -or (
+            $googleSettingsReady -and
+            $google.configured -and
+            $google.authorized -and
+            $google.fetched_at -and
+            -not $google.stale -and
+            $health.google.status -eq "ok"
+        )
     } catch {
         $apiReady = $false
         $mailReady = $false
+        $googleReady = $false
     }
 }
 Add-Check "Real-data API, unauthorized rejection, and security headers" $apiReady
 Add-Check "Fresh snapshot from all three mail accounts" $mailReady
+Add-Check "Google Calendar and Drive snapshot when enabled" $googleReady
 
 $today = Get-Date -Format "yyyy-MM-dd"
 $backupPath = Join-Path $dashboardData "backups\dashboard-$today.db"
 if ($pythonReady -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
     try {
-        & $pythonPath -c "import sqlite3,sys; from pathlib import Path; uri=Path(sys.argv[1]).resolve().as_uri()+'?mode=ro'; c=sqlite3.connect(uri,uri=True); c.execute('SELECT COUNT(*) FROM project_mark').fetchone(); c.execute('SELECT COUNT(*) FROM setting').fetchone(); c.close()" $backupPath 2>$null
+        & $pythonPath -c "import sqlite3,sys; from pathlib import Path; uri=Path(sys.argv[1]).resolve().as_uri()+'?mode=ro'; c=sqlite3.connect(uri,uri=True); c.execute('SELECT COUNT(*) FROM project_mark').fetchone(); c.execute('SELECT COUNT(*) FROM setting').fetchone(); c.execute('SELECT COUNT(*) FROM todo_item').fetchone(); c.close()" $backupPath 2>$null
         $backupReady = $LASTEXITCODE -eq 0
     } catch {
         $backupReady = $false

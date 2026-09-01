@@ -125,6 +125,12 @@ class DashboardService:
     def delete_todo(self, todo_id: int) -> bool:
         return self._state_store.delete_todo(todo_id)
 
+    def create_google_oauth_state(self) -> str:
+        return self._state_store.create_google_oauth_state()
+
+    def consume_google_oauth_state(self, state: str) -> bool:
+        return self._state_store.consume_google_oauth_state(state)
+
     def load_mail(self) -> MailSnapshot:
         if self._settings.app_demo_mode:
             return self._demo_mail(datetime.now(self._settings.timezone))

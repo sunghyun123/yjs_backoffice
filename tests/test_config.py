@@ -99,3 +99,35 @@ def test_enabled_daou_mail_requires_full_email_address() -> None:
             mail_daou_password="secret",
             mail_daou_url="https://mail.example.test/",
         )
+
+
+def test_enabled_google_requires_web_oauth_configuration() -> None:
+    with pytest.raises(ValidationError, match="Client ID"):
+        make_settings(google_enabled=True)
+
+    settings = make_settings(
+        google_enabled=True,
+        google_client_id="client-id",
+        google_client_secret="client-secret",
+        google_redirect_uri="https://dashboard.example/api/google/oauth/callback",
+        google_refresh_token="refresh-token",
+    )
+
+    assert settings.google_authorized is True
+
+
+def test_production_google_redirect_must_use_https() -> None:
+    with pytest.raises(ValidationError, match="HTTPS"):
+        make_settings(
+            app_env="production",
+            app_demo_mode=False,
+            app_trust_tailscale_headers=True,
+            app_allowed_tailscale_user="ceo@example.test",
+            db_user="readonly",
+            db_password="secret",
+            thinkwise_index_path="data/wiki_index.db",
+            google_enabled=True,
+            google_client_id="client-id",
+            google_client_secret="client-secret",
+            google_redirect_uri="http://127.0.0.1/oauth/callback",
+        )

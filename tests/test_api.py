@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 
 import app.main as main_module
 from app.config import Settings
+from app.domain import GoogleWorkspaceSnapshot
 from app.main import create_app
 
 
@@ -28,6 +31,7 @@ def test_dashboard_and_health_are_ready_in_demo_mode() -> None:
     with TestClient(app) as client:
         dashboard = client.get("/api/dashboard")
         health = client.get("/api/health")
+        google = client.get("/api/google")
 
     assert dashboard.status_code == 200
     assert dashboard.headers["cache-control"] == "no-store"
@@ -49,6 +53,10 @@ def test_dashboard_and_health_are_ready_in_demo_mode() -> None:
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert health.json()["demo_mode"] is True
+    assert health.json()["google"]["status"] == "ok"
+    assert google.status_code == 200
+    assert len(google.json()["events"]) == 2
+    assert len(google.json()["files"]) == 2
 
 
 def test_dashboard_page_serves_approved_mockup() -> None:
@@ -78,6 +86,11 @@ def test_dashboard_page_serves_approved_mockup() -> None:
     assert 'id="mailboxLink"' in response.text
     assert 'class="panel mail-panel"' in response.text
     assert 'id="todoInput"' in response.text
+    assert 'id="calendarList"' in response.text
+    assert 'id="driveList"' in response.text
+    assert 'id="googleConnectLink"' in response.text
+    assert "fetch('/api/google'" in response.text
+    assert 'class="executive-weekly"' in response.text
     assert "fetch('/api/todos'" in response.text
     assert "완료하면 목록에서 자동으로 정리됩니다." in response.text
     assert "(mail.items || []).slice(0, 10)" in response.text
@@ -283,3 +296,100 @@ def test_state_changes_reject_cross_origin_requests() -> None:
         )
 
     assert response.status_code == 403
+
+
+class GoogleCollectorStub:
+    configured = True
+    authorized = False
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def set_refresh_token(self, refresh_token: str) -> None:
+        self.authorized = bool(refresh_token)
+
+    def collect(self) -> GoogleWorkspaceSnapshot:
+        return GoogleWorkspaceSnapshot(
+            configured=True,
+            authorized=self.authorized,
+            fetched_at=datetime.now(self.settings.timezone),
+        )
+
+
+class GoogleOAuthManagerStub:
+    configured = True
+
+    def __init__(self) -> None:
+        self.completed: tuple[str, str] | None = None
+        self.discarded = ""
+
+    def authorization_url(self) -> str:
+        return "https://accounts.google.com/o/oauth2/auth?state=test-state"
+
+    def complete(self, state: str, code: str) -> str:
+        self.completed = (state, code)
+        return "refresh-token"
+
+    def discard_state(self, state: str) -> bool:
+        self.discarded = state
+        return state == "test-state"
+
+
+def test_google_oauth_routes_connect_runtime_without_restart() -> None:
+    settings = make_settings()
+    collector = GoogleCollectorStub(settings)
+    oauth = GoogleOAuthManagerStub()
+    app = create_app(
+        settings,
+        google_collector=collector,
+        google_oauth_manager=oauth,
+    )
+
+    with TestClient(app) as client:
+        start = client.get("/api/google/oauth/start", follow_redirects=False)
+        callback = client.get(
+            "/api/google/oauth/callback?state=test-state&code=test-code",
+            follow_redirects=False,
+        )
+        google = client.get("/api/google")
+
+    assert start.status_code == 302
+    assert start.headers["location"].startswith("https://accounts.google.com/")
+    assert callback.status_code == 303
+    assert callback.headers["location"] == "/?google=connected#weekly"
+    assert oauth.completed == ("test-state", "test-code")
+    assert google.json()["authorized"] is True
+
+
+def test_google_oauth_start_is_unavailable_without_configuration() -> None:
+    app = create_app(make_settings())
+
+    with TestClient(app) as client:
+        response = client.get("/api/google/oauth/start")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Google OAuth 설정이 필요합니다."
+
+
+def test_google_oauth_denial_still_requires_valid_state() -> None:
+    settings = make_settings()
+    oauth = GoogleOAuthManagerStub()
+    app = create_app(
+        settings,
+        google_collector=GoogleCollectorStub(settings),
+        google_oauth_manager=oauth,
+    )
+
+    with TestClient(app) as client:
+        invalid = client.get(
+            "/api/google/oauth/callback?state=forged&error=access_denied",
+            follow_redirects=False,
+        )
+        denied = client.get(
+            "/api/google/oauth/callback?state=test-state&error=access_denied",
+            follow_redirects=False,
+        )
+
+    assert invalid.status_code == 400
+    assert denied.status_code == 303
+    assert denied.headers["location"] == "/?google=denied#weekly"

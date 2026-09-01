@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -37,6 +37,39 @@ class TodoItem(BaseModel):
     id: int = Field(ge=1)
     text: str
     created_at: datetime
+
+
+class GoogleCalendarEvent(BaseModel):
+    id: str
+    title: str
+    starts_at: datetime | None = None
+    start_date: date | None = None
+    ends_at: datetime | None = None
+    end_date: date | None = None
+    all_day: bool = False
+    dday: int
+
+
+class GoogleDriveFile(BaseModel):
+    id: str
+    name: str
+    mime_type: str
+    kind: str
+    modified_at: datetime
+    open_url: str
+
+
+class GoogleWorkspaceSnapshot(BaseModel):
+    configured: bool = False
+    authorized: bool = False
+    refresh_interval_sec: int = 300
+    fetched_at: datetime | None = None
+    stale: bool = False
+    error: str | None = None
+    week_start: date | None = None
+    week_end: date | None = None
+    events: list[GoogleCalendarEvent] = Field(default_factory=list)
+    files: list[GoogleDriveFile] = Field(default_factory=list)
 
 
 class Project(BaseModel):

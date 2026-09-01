@@ -320,10 +320,105 @@
     box-shadow: var(--shadow);
   }
 
-  .todo-section {
-    width: min(720px, 100%);
-    margin: 0 auto 18px;
+  .executive-weekly { width: min(720px, 100%); margin: 0 auto 26px; }
+  .weekly-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+
+  .weekly-stat {
+    min-width: 0;
+    padding: 14px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
   }
+
+  .weekly-stat span { display: block; margin-bottom: 6px; color: var(--text-faint); font-size: 11.5px; }
+  .weekly-stat strong { color: var(--blue); font-size: 21px; font-variant-numeric: tabular-nums; }
+  .weekly-section { margin-bottom: 24px; }
+
+  .weekly-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 2px 10px;
+    color: var(--text-faint);
+    font-size: 13px;
+    font-weight: 760;
+    letter-spacing: 0.05em;
+  }
+
+  .weekly-section-title h2 { margin: 0; font: inherit; }
+  .weekly-section-title span { letter-spacing: 0; text-align: right; }
+  .weekly-card { overflow: hidden; }
+  .calendar-list, .drive-list { margin: 0; padding: 0; list-style: none; }
+
+  .calendar-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .calendar-item:last-child, .drive-item:last-child { border-bottom: 0; }
+  .calendar-date { width: 56px; flex: none; text-align: center; }
+  .calendar-date span { display: block; color: var(--text-faint); font-size: 11px; }
+  .calendar-date strong { display: block; font-size: 19px; line-height: 1.2; }
+  .calendar-body { min-width: 0; flex: 1; }
+  .calendar-title { overflow: hidden; font-size: 14px; font-weight: 730; text-overflow: ellipsis; white-space: nowrap; }
+  .calendar-time { margin-top: 2px; color: var(--text-soft); font-size: 12.5px; }
+
+  .calendar-dday {
+    flex: none;
+    padding: 4px 9px;
+    color: var(--blue);
+    background: var(--blue-soft);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 780;
+  }
+
+  .drive-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .drive-item:hover { background: var(--surface-subtle); }
+
+  .drive-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    background: var(--surface-subtle);
+    border-radius: 9px;
+    font-size: 15px;
+  }
+
+  .drive-body { min-width: 0; flex: 1; }
+  .drive-title { display: block; overflow: hidden; font-size: 13.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .drive-meta { display: block; margin-top: 1px; color: var(--text-faint); font-size: 12px; }
+  .drive-arrow { flex: none; color: var(--text-faint); }
+  .weekly-empty { padding: 22px 16px; color: var(--text-faint); text-align: center; font-size: 13px; }
+
+  .google-connect {
+    padding: 4px 9px;
+    color: var(--blue);
+    background: var(--blue-soft);
+    border-radius: 999px;
+    font-weight: 750;
+  }
+
+  .google-note { margin: -10px 0 0; color: var(--text-faint); text-align: center; font-size: 12px; }
+  .google-note.is-error { color: var(--red); }
+
+  .todo-section { width: 100%; margin: 0 0 18px; }
 
   .todo-section-title {
     display: flex;
@@ -700,6 +795,12 @@
     .panel-foot { padding-left: 15px; padding-right: 15px; }
     .search { width: 100%; }
   }
+
+  @media (max-width: 480px) {
+    .weekly-stats { grid-template-columns: repeat(2, 1fr); }
+    .weekly-section-title { align-items: flex-start; }
+    .todo-summary { align-items: flex-start; flex-direction: column; }
+  }
 </style>
 </head>
 <body>
@@ -721,6 +822,40 @@
     </div>
   </header>
 
+  <section class="executive-weekly" id="weekly" aria-labelledby="weekly-title">
+    <h2 class="sr-only" id="weekly-title">대표이사 주간 현황</h2>
+
+    <div class="weekly-stats" aria-label="주간 핵심 요약">
+      <div class="weekly-stat"><span>이번 주 일정</span><strong id="weeklyEventStat">—</strong></div>
+      <div class="weekly-stat"><span>가장 가까운 일정</span><strong id="nextEventStat">—</strong></div>
+      <div class="weekly-stat"><span>Drive 최근 변경</span><strong id="driveFileStat">—</strong></div>
+      <div class="weekly-stat"><span>남은 할 일</span><strong id="todoStat">0건</strong></div>
+    </div>
+
+    <section class="weekly-section" aria-labelledby="calendar-title">
+      <div class="weekly-section-title">
+        <h2 id="calendar-title">이번 주 일정</h2>
+        <span id="weekRange">이번 주</span>
+      </div>
+      <div class="panel weekly-card">
+        <ul class="calendar-list" id="calendarList" aria-live="polite">
+          <li class="weekly-empty">일정을 불러오는 중입니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="weekly-section" aria-labelledby="drive-title">
+      <div class="weekly-section-title">
+        <h2 id="drive-title">Drive 최근 수정 파일</h2>
+        <span><a class="google-connect" id="googleConnectLink" href="/api/google/oauth/start" hidden>Google 계정 연결</a></span>
+      </div>
+      <div class="panel weekly-card">
+        <ul class="drive-list" id="driveList" aria-live="polite">
+          <li class="weekly-empty">Drive 파일을 불러오는 중입니다.</li>
+        </ul>
+      </div>
+    </section>
+
   <section class="todo-section" aria-labelledby="todo-title">
     <div class="todo-section-title">
       <h2 id="todo-title">할 일</h2>
@@ -740,6 +875,9 @@
         <span class="todo-status" id="todoStatus" role="status" aria-live="polite"></span>
       </div>
     </div>
+  </section>
+
+    <p class="google-note" id="googleStatus" role="status" aria-live="polite"></p>
   </section>
 
   <section class="panel visual-summary" aria-label="핵심 현황 차트">
@@ -954,6 +1092,7 @@
     let hasRenderedData = false;
     let todoItems = [];
     const pendingTodoDeletes = new Set();
+    const googleCallbackResult = new URLSearchParams(window.location.search).get('google');
 
     const statusMeta = {
       active:  { label: '활발', className: 'state-active' },
@@ -1023,6 +1162,7 @@
         list.append(row);
       }
       setText('todoCount', `${todoItems.length}건`);
+      setText('todoStat', `${todoItems.length}건`);
     }
 
     async function loadTodos() {
@@ -1056,6 +1196,183 @@
         setTodoStatus(completed ? '완료 처리하지 못했습니다.' : '삭제하지 못했습니다.', true);
       } finally {
         pendingTodoDeletes.delete(todoId);
+      }
+    }
+
+    function replaceWeeklyList(id, message) {
+      const row = document.createElement('li');
+      row.className = 'weekly-empty';
+      row.textContent = message;
+      document.getElementById(id).replaceChildren(row);
+    }
+
+    function dateParts(value) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+      return match ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) } : null;
+    }
+
+    function weekRangeText(startValue, endValue) {
+      const start = dateParts(startValue);
+      const end = dateParts(endValue);
+      if (!start || !end) return '이번 주';
+      return `${start.month}/${start.day} – ${end.month}/${end.day}`;
+    }
+
+    function calendarDateMeta(event) {
+      const value = event.start_date || event.starts_at;
+      const date = event.start_date
+        ? new Date(`${event.start_date}T00:00:00+09:00`)
+        : asDate(value);
+      if (!date) return ['—', '—'];
+      const formatter = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul', weekday: 'short', day: 'numeric'
+      });
+      const parts = formatter.formatToParts(date);
+      return [
+        parts.find((part) => part.type === 'weekday')?.value || '—',
+        parts.find((part) => part.type === 'day')?.value || '—'
+      ];
+    }
+
+    function eventTimeText(event) {
+      if (event.all_day) return '종일';
+      const start = timeText(event.starts_at);
+      const end = event.ends_at ? timeText(event.ends_at) : '';
+      return end ? `${start} – ${end}` : start;
+    }
+
+    function ddayText(value) {
+      if (value === 0) return 'D-DAY';
+      return value > 0 ? `D-${value}` : `D+${Math.abs(value)}`;
+    }
+
+    function renderGoogle(data) {
+      const events = data.events || [];
+      const files = data.files || [];
+      const connect = document.getElementById('googleConnectLink');
+      connect.hidden = !data.configured || data.authorized;
+      setText('weeklyEventStat', `${events.length}건`);
+      setText('driveFileStat', `${files.length}건`);
+      const upcoming = events.find((event) => Number(event.dday) >= 0);
+      setText('nextEventStat', upcoming ? ddayText(Number(upcoming.dday)) : '없음');
+      setText('weekRange', weekRangeText(data.week_start, data.week_end));
+
+      if (!data.configured) {
+        replaceWeeklyList('calendarList', '서버에 Google OAuth 설정이 필요합니다.');
+        replaceWeeklyList('driveList', '서버에 Google OAuth 설정이 필요합니다.');
+        setGoogleStatus('Google Cloud 설정값을 준비하면 이 화면에서 계정을 연결할 수 있습니다.');
+        return;
+      }
+      if (!data.authorized) {
+        replaceWeeklyList('calendarList', 'Google 계정을 한 번 연결해 주세요.');
+        replaceWeeklyList('driveList', '연결 후 최근 수정 파일을 표시합니다.');
+        setGoogleStatus('Calendar 일정과 Drive 파일 메타데이터만 읽습니다.');
+        return;
+      }
+
+      const calendar = document.getElementById('calendarList');
+      calendar.replaceChildren();
+      events.forEach((event) => {
+        const row = document.createElement('li');
+        row.className = 'calendar-item';
+        const date = document.createElement('div');
+        date.className = 'calendar-date';
+        const [weekday, day] = calendarDateMeta(event);
+        const weekdayEl = document.createElement('span');
+        weekdayEl.textContent = weekday;
+        const dayEl = document.createElement('strong');
+        dayEl.textContent = day;
+        date.append(weekdayEl, dayEl);
+        const body = document.createElement('div');
+        body.className = 'calendar-body';
+        const title = document.createElement('div');
+        title.className = 'calendar-title';
+        title.textContent = event.title;
+        const time = document.createElement('div');
+        time.className = 'calendar-time';
+        time.textContent = eventTimeText(event);
+        body.append(title, time);
+        const dday = document.createElement('span');
+        dday.className = 'calendar-dday';
+        dday.textContent = ddayText(Number(event.dday));
+        row.append(date, body, dday);
+        calendar.append(row);
+      });
+      if (!events.length) replaceWeeklyList('calendarList', '이번 주 일정이 없습니다.');
+
+      const drive = document.getElementById('driveList');
+      drive.replaceChildren();
+      const icons = {
+        image: '🖼️', spreadsheet: '📊', pdf: '📄',
+        presentation: '📽️', document: '📝', other: '📁'
+      };
+      files.forEach((file) => {
+        let url;
+        try {
+          url = new URL(file.open_url);
+        } catch (_error) {
+          return;
+        }
+        if (url.protocol !== 'https:' || url.hostname !== 'drive.google.com') return;
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.className = 'drive-item';
+        link.href = url.href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        const icon = document.createElement('span');
+        icon.className = 'drive-icon';
+        icon.textContent = icons[file.kind] || icons.other;
+        const body = document.createElement('span');
+        body.className = 'drive-body';
+        const title = document.createElement('span');
+        title.className = 'drive-title';
+        title.textContent = file.name;
+        const meta = document.createElement('span');
+        meta.className = 'drive-meta';
+        meta.textContent = `${dateText(file.modified_at)} ${timeText(file.modified_at)}`;
+        body.append(title, meta);
+        const arrow = document.createElement('span');
+        arrow.className = 'drive-arrow';
+        arrow.textContent = '↗';
+        link.append(icon, body, arrow);
+        item.append(link);
+        drive.append(item);
+      });
+      if (!drive.children.length) replaceWeeklyList('driveList', '최근 수정 파일이 없습니다.');
+
+      if (data.stale) {
+        setGoogleStatus('Google 갱신에 실패해 마지막 성공 데이터를 표시합니다.', true);
+      } else if (googleCallbackResult === 'connected') {
+        setGoogleStatus('Google 계정 연결이 완료되었습니다.');
+      } else {
+        setGoogleStatus(`Google · ${timeText(data.fetched_at)} 갱신`);
+      }
+    }
+
+    function setGoogleStatus(message, isError = false) {
+      const status = document.getElementById('googleStatus');
+      status.textContent = googleCallbackResult === 'denied'
+        ? 'Google 계정 연결이 취소되었습니다.'
+        : message;
+      status.className = `google-note${isError || googleCallbackResult === 'denied' ? ' is-error' : ''}`;
+    }
+
+    async function loadGoogle() {
+      if (window.location.protocol === 'file:') {
+        replaceWeeklyList('calendarList', '실행 중인 대시보드에서 Google 일정을 표시합니다.');
+        replaceWeeklyList('driveList', '실행 중인 대시보드에서 Drive 파일을 표시합니다.');
+        setGoogleStatus('Google 연동은 서버 실행 화면에서 확인할 수 있습니다.');
+        return;
+      }
+      try {
+        const response = await fetch('/api/google', { cache: 'no-store' });
+        if (!response.ok) throw new Error('google unavailable');
+        renderGoogle(await response.json());
+      } catch (_error) {
+        replaceWeeklyList('calendarList', 'Google 일정을 불러오지 못했습니다.');
+        replaceWeeklyList('driveList', 'Drive 파일을 불러오지 못했습니다.');
+        setGoogleStatus('Google API에 연결하지 못했습니다.', true);
       }
     }
 
@@ -1558,9 +1875,11 @@
     showInitialLoadingState();
     loadDashboard();
     loadTodos();
+    loadGoogle();
     if (window.location.protocol !== 'file:') {
       window.setInterval(loadDashboard, 60000);
       window.setInterval(loadTodos, 60000);
+      window.setInterval(loadGoogle, 60000);
     }
   })();
 </script>

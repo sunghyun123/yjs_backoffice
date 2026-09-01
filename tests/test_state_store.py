@@ -120,3 +120,17 @@ def test_state_store_persists_shared_todos_and_deletes_completed_items(tmp_path)
     with sqlite3.connect(backup) as restored:
         rows = restored.execute("SELECT id, text FROM todo_item ORDER BY id").fetchall()
     assert rows == [(second.id, "결재 문서 검토")]
+
+
+def test_google_oauth_state_is_hashed_and_single_use(tmp_path) -> None:
+    store = DashboardStateStore(tmp_path / "dashboard.db", ZoneInfo("Asia/Seoul"))
+    state = store.create_google_oauth_state()
+
+    row = store._connection.execute(  # noqa: SLF001
+        "SELECT state_hash FROM google_oauth_state"
+    ).fetchone()
+    assert row is not None
+    assert row[0] != state
+    assert store.consume_google_oauth_state(state) is True
+    assert store.consume_google_oauth_state(state) is False
+    store.close()

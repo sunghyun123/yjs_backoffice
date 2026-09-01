@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import secrets
 import sqlite3
 import threading
 from datetime import date, datetime, timedelta
@@ -52,6 +54,11 @@ class DashboardStateStore:
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 text       TEXT NOT NULL CHECK(length(trim(text)) BETWEEN 1 AND 120),
                 created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS google_oauth_state (
+                state_hash TEXT PRIMARY KEY,
+                expires_at TEXT NOT NULL
             );
             """
         )
@@ -160,6 +167,38 @@ class DashboardStateStore:
             self._connection.commit()
             if cursor.rowcount:
                 self.backup_if_due(force=True)
+        return cursor.rowcount > 0
+
+    def create_google_oauth_state(self, ttl_minutes: int = 10) -> str:
+        state = secrets.token_urlsafe(32)
+        state_hash = hashlib.sha256(state.encode("utf-8")).hexdigest()
+        now = datetime.now(self._timezone)
+        expires_at = (now + timedelta(minutes=ttl_minutes)).isoformat(timespec="seconds")
+        with self._lock:
+            self._connection.execute(
+                "DELETE FROM google_oauth_state WHERE expires_at < ?",
+                (now.isoformat(timespec="seconds"),),
+            )
+            self._connection.execute(
+                "INSERT INTO google_oauth_state(state_hash, expires_at) VALUES(?, ?)",
+                (state_hash, expires_at),
+            )
+            self._connection.commit()
+        return state
+
+    def consume_google_oauth_state(self, state: str) -> bool:
+        state_hash = hashlib.sha256(state.encode("utf-8")).hexdigest()
+        now = datetime.now(self._timezone).isoformat(timespec="seconds")
+        with self._lock:
+            cursor = self._connection.execute(
+                "DELETE FROM google_oauth_state WHERE state_hash = ? AND expires_at >= ?",
+                (state_hash, now),
+            )
+            self._connection.execute(
+                "DELETE FROM google_oauth_state WHERE expires_at < ?",
+                (now,),
+            )
+            self._connection.commit()
         return cursor.rowcount > 0
 
     def backup_if_due(self, *, force: bool = False) -> Path | None:

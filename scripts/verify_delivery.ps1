@@ -92,6 +92,7 @@ if ($healthResponse.Headers["Cache-Control"] -ne "no-store") {
 }
 $health = $healthResponse.Content | ConvertFrom-Json
 $dashboard = Invoke-RestMethod -Uri "$baseUrl/api/dashboard" -Headers $headers
+$google = Invoke-RestMethod -Uri "$baseUrl/api/google" -Headers $headers
 
 if ($health.status -ne "ok" -or $dashboard.stale) {
     throw "The dashboard or its data source is not healthy."
@@ -101,6 +102,19 @@ if ($RequireProduction -and $health.demo_mode) {
 }
 if ($dashboard.kpi.total_projects -lt 1) {
     throw "The project dataset is empty."
+}
+
+$googleEnabled = (Get-DotEnvValue "GOOGLE_ENABLED") -eq "true"
+if ($RequireProduction -and $googleEnabled) {
+    if (
+        -not $google.configured -or
+        -not $google.authorized -or
+        -not $google.fetched_at -or
+        $google.stale -or
+        $health.google.status -ne "ok"
+    ) {
+        throw "The enabled Google Calendar and Drive snapshot is not healthy."
+    }
 }
 
 $activeMailAccounts = @()
@@ -127,6 +141,6 @@ if ($RequireProduction) {
 }
 
 Write-Host (
-    "Local delivery verification passed: {0} projects, source mode {1}, active mail accounts {2}" -f `
-    $dashboard.kpi.total_projects, $health.source.mode, $activeMailAccounts.Count
+    "Local delivery verification passed: {0} projects, source mode {1}, active mail accounts {2}, Google enabled {3}" -f `
+    $dashboard.kpi.total_projects, $health.source.mode, $activeMailAccounts.Count, $googleEnabled
 )

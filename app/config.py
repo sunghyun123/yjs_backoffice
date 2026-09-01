@@ -61,6 +61,13 @@ class Settings(BaseSettings):
     mail_naver_password: SecretStr = SecretStr("")
     mail_naver_url: str = "https://mail.naver.com/"
 
+    google_enabled: bool = False
+    google_refresh_seconds: int = Field(default=300, ge=60, le=3600)
+    google_client_id: str = ""
+    google_client_secret: SecretStr = SecretStr("")
+    google_refresh_token: SecretStr = SecretStr("")
+    google_redirect_uri: str = ""
+
     @field_validator("app_timezone")
     @classmethod
     def validate_timezone(cls, value: str) -> str:
@@ -137,6 +144,23 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"{label} 메일을 활성화하려면 호스트·사용자·비밀번호·HTTPS 웹메일 주소가 필요합니다."
                 )
+        if self.google_enabled:
+            if (
+                not self.google_client_id.strip()
+                or not self.google_client_secret.get_secret_value()
+                or not self.google_redirect_uri.strip()
+            ):
+                raise ValueError(
+                    "Google 연동을 활성화하려면 Client ID·Client Secret·Redirect URI가 필요합니다."
+                )
+            redirect_uri = self.google_redirect_uri.strip().lower()
+            if self.app_env.strip().lower() == "production":
+                if not redirect_uri.startswith("https://"):
+                    raise ValueError("운영 Google Redirect URI는 HTTPS여야 합니다.")
+            elif not redirect_uri.startswith(
+                ("http://127.0.0.1", "http://localhost", "https://")
+            ):
+                raise ValueError("개발 Google Redirect URI는 localhost HTTP 또는 HTTPS여야 합니다.")
         return self
 
     @property
@@ -171,6 +195,10 @@ class Settings(BaseSettings):
             return None
         path = Path(raw_path)
         return path if path.is_absolute() else PROJECT_ROOT / path
+
+    @property
+    def google_authorized(self) -> bool:
+        return self.google_enabled and bool(self.google_refresh_token.get_secret_value())
 
 
 @lru_cache(maxsize=1)
