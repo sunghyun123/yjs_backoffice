@@ -78,7 +78,8 @@ def test_dashboard_page_serves_approved_mockup() -> None:
     assert 'id="mailboxLink"' in response.text
     assert 'class="panel mail-panel"' in response.text
     assert "(mail.items || []).slice(0, 10)" in response.text
-    assert ".mail-list {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));" in response.text
+    # core.autocrlf=true 체크아웃에서는 본문이 CRLF 라 여러 줄 단언은 정규화 후 비교한다.
+    assert ".mail-list {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));" in response.text.replace("\r\n", "\n")
 
 
 def test_tailscale_identity_is_required_when_enabled() -> None:
