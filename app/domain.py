@@ -27,6 +27,18 @@ class ProjectMarkUpdate(BaseModel):
     memo: str = Field(default="", max_length=500)
 
 
+class TodoCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=120)
+
+
+class TodoItem(BaseModel):
+    id: int = Field(ge=1)
+    text: str
+    created_at: datetime
+
+
 class Project(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

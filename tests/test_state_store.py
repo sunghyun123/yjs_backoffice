@@ -99,3 +99,24 @@ def test_state_store_migrates_legacy_setting_table(tmp_path) -> None:
         assert store.get_thresholds().online_minutes == 20
     finally:
         store.close()
+
+
+def test_state_store_persists_shared_todos_and_deletes_completed_items(tmp_path) -> None:
+    path = tmp_path / "dashboard.db"
+    store = DashboardStateStore(path, ZoneInfo("Asia/Seoul"))
+    first = store.add_todo("주간 보고 확인")
+    second = store.add_todo("결재 문서 검토")
+    store.close()
+
+    reopened = DashboardStateStore(path, ZoneInfo("Asia/Seoul"))
+    assert reopened.list_todos() == [first, second]
+    assert reopened.delete_todo(first.id) is True
+    assert reopened.delete_todo(first.id) is False
+    assert reopened.list_todos() == [second]
+    backup = reopened.backup_if_due()
+    reopened.close()
+
+    assert backup is not None
+    with sqlite3.connect(backup) as restored:
+        rows = restored.execute("SELECT id, text FROM todo_item ORDER BY id").fetchall()
+    assert rows == [(second.id, "결재 문서 검토")]

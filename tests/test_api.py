@@ -77,6 +77,9 @@ def test_dashboard_page_serves_approved_mockup() -> None:
     assert 'id="showAllProjects"' in response.text
     assert 'id="mailboxLink"' in response.text
     assert 'class="panel mail-panel"' in response.text
+    assert 'id="todoInput"' in response.text
+    assert "fetch('/api/todos'" in response.text
+    assert "완료하면 목록에서 자동으로 정리됩니다." in response.text
     assert "(mail.items || []).slice(0, 10)" in response.text
     # core.autocrlf=true 체크아웃에서는 본문이 CRLF 라 여러 줄 단언은 정규화 후 비교한다.
     assert ".mail-list {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));" in response.text.replace("\r\n", "\n")
@@ -197,6 +200,66 @@ def test_project_mark_and_settings_are_persisted_and_applied(tmp_path) -> None:
     )
     assert restored_project["mark"] is None
     assert restored_project["current_status"] == "dormant"
+
+
+def test_todos_are_shared_persisted_and_removed_on_completion(tmp_path) -> None:
+    settings = make_settings(sqlite_path=tmp_path / "dashboard.db")
+    first_app = create_app(settings)
+    with TestClient(first_app) as client:
+        created = client.post("/api/todos", json={"text": "  주간 보고 확인  "})
+        listed = client.get("/api/todos")
+
+    assert created.status_code == 201
+    assert created.json()["text"] == "주간 보고 확인"
+    todo_id = created.json()["id"]
+    assert listed.json() == [created.json()]
+
+    reopened_app = create_app(settings)
+    with TestClient(reopened_app) as client:
+        persisted = client.get("/api/todos")
+        completed = client.delete(f"/api/todos/{todo_id}")
+        empty = client.get("/api/todos")
+        missing = client.delete(f"/api/todos/{todo_id}")
+
+    assert persisted.json() == [created.json()]
+    assert completed.status_code == 204
+    assert completed.content == b""
+    assert empty.json() == []
+    assert missing.status_code == 404
+
+
+def test_todo_input_is_validated() -> None:
+    app = create_app(make_settings())
+    with TestClient(app) as client:
+        blank = client.post("/api/todos", json={"text": "   "})
+        too_long = client.post("/api/todos", json={"text": "가" * 121})
+
+    assert blank.status_code == 422
+    assert too_long.status_code == 422
+
+
+def test_todo_list_is_shared_by_all_allowed_tailscale_accounts() -> None:
+    settings = make_settings(
+        app_trust_tailscale_headers=True,
+        app_allowed_tailscale_users="maintainer@example.test,ceo@example.test",
+    )
+    app = create_app(settings)
+    maintainer = {
+        "Tailscale-User-Login": "maintainer@example.test",
+        "Origin": "http://testserver",
+    }
+    ceo = {"Tailscale-User-Login": "ceo@example.test"}
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/todos",
+            json={"text": "공용 목록"},
+            headers=maintainer,
+        )
+        listed = client.get("/api/todos", headers=ceo)
+
+    assert created.status_code == 201
+    assert listed.status_code == 200
+    assert listed.json() == [created.json()]
 
 
 def test_unknown_project_mark_is_rejected() -> None:

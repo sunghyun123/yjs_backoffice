@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from app.domain import ManualStatus, StatusThresholds
+from app.domain import ManualStatus, StatusThresholds, TodoItem
 
 
 class DashboardStateStore:
@@ -45,6 +45,13 @@ class DashboardStateStore:
                 k TEXT PRIMARY KEY,
                 v TEXT NOT NULL,
                 updated_at TEXT NOT NULL DEFAULT ''
+            );
+
+            -- One shared list is intentional: every authorized account manages the CEO board.
+            CREATE TABLE IF NOT EXISTS todo_item (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                text       TEXT NOT NULL CHECK(length(trim(text)) BETWEEN 1 AND 120),
+                created_at TEXT NOT NULL
             );
             """
         )
@@ -117,6 +124,43 @@ class DashboardStateStore:
             )
             self._connection.commit()
             self.backup_if_due(force=True)
+
+    def list_todos(self) -> list[TodoItem]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT id, text, created_at FROM todo_item ORDER BY id"
+            ).fetchall()
+        return [
+            TodoItem(
+                id=int(row["id"]),
+                text=str(row["text"]),
+                created_at=str(row["created_at"]),
+            )
+            for row in rows
+        ]
+
+    def add_todo(self, text: str) -> TodoItem:
+        created_at = datetime.now(self._timezone).isoformat(timespec="seconds")
+        with self._lock:
+            cursor = self._connection.execute(
+                "INSERT INTO todo_item(text, created_at) VALUES(?, ?)",
+                (text, created_at),
+            )
+            self._connection.commit()
+            self.backup_if_due(force=True)
+        return TodoItem(id=int(cursor.lastrowid), text=text, created_at=created_at)
+
+    def delete_todo(self, todo_id: int) -> bool:
+        # Completion removes the row too, so completed items never need periodic cleanup.
+        with self._lock:
+            cursor = self._connection.execute(
+                "DELETE FROM todo_item WHERE id = ?",
+                (todo_id,),
+            )
+            self._connection.commit()
+            if cursor.rowcount:
+                self.backup_if_due(force=True)
+        return cursor.rowcount > 0
 
     def backup_if_due(self, *, force: bool = False) -> Path | None:
         if str(self._path) == ":memory:":

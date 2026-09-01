@@ -13,6 +13,7 @@ from app.domain import (
     Project,
     RecentEdit,
     StatusThresholds,
+    TodoItem,
     calculate_kpi,
     classify_project,
     current_status,
@@ -114,6 +115,15 @@ class DashboardService:
 
     def delete_mark(self, hashfname: str) -> None:
         self._state_store.delete_mark(hashfname)
+
+    def list_todos(self) -> list[TodoItem]:
+        return self._state_store.list_todos()
+
+    def add_todo(self, text: str) -> TodoItem:
+        return self._state_store.add_todo(text)
+
+    def delete_todo(self, todo_id: int) -> bool:
+        return self._state_store.delete_todo(todo_id)
 
     def load_mail(self) -> MailSnapshot:
         if self._settings.app_demo_mode:

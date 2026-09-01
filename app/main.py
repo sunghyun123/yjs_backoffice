@@ -4,11 +4,17 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 
 from app.config import PROJECT_ROOT, Settings, get_settings
-from app.domain import DashboardSnapshot, ProjectMarkUpdate, StatusThresholds
+from app.domain import (
+    DashboardSnapshot,
+    ProjectMarkUpdate,
+    StatusThresholds,
+    TodoCreate,
+    TodoItem,
+)
 from app.mail import MailAccount, MailCollector
 from app.repository import DashboardRepository, ThinkWiseRepository
 from app.runtime import DashboardRuntime
@@ -112,6 +118,24 @@ def create_app(
         service.delete_mark(hashfname)
         await runtime.refresh_core()
         return runtime.snapshot()
+
+    @app.get("/api/todos", response_model=list[TodoItem])
+    async def list_todos() -> list[TodoItem]:
+        return service.list_todos()
+
+    @app.post(
+        "/api/todos",
+        response_model=TodoItem,
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def add_todo(payload: TodoCreate) -> TodoItem:
+        return service.add_todo(payload.text)
+
+    @app.delete("/api/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_todo(todo_id: int) -> Response:
+        if not service.delete_todo(todo_id):
+            raise HTTPException(status_code=404, detail="할 일을 찾을 수 없습니다.")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return app
 
