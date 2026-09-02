@@ -285,4 +285,5 @@ def _make_google_collector(settings: Settings) -> GoogleCollector:
         timezone=settings.timezone,
         refresh_interval_sec=settings.google_refresh_seconds,
         configured=settings.google_enabled,
+        shared_drive_id=settings.google_shared_drive_id,
     )

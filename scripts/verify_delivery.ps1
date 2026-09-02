@@ -109,6 +109,7 @@ if ($RequireProduction -and $googleEnabled) {
     if (
         -not $google.configured -or
         -not $google.authorized -or
+        $google.drive_scope -ne "shared" -or
         -not $google.fetched_at -or
         $google.stale -or
         $health.google.status -ne "ok"

@@ -131,3 +131,20 @@ def test_production_google_redirect_must_use_https() -> None:
             google_client_secret="client-secret",
             google_redirect_uri="http://127.0.0.1/oauth/callback",
         )
+
+
+def test_production_google_requires_shared_drive_id() -> None:
+    with pytest.raises(ValidationError, match="GOOGLE_SHARED_DRIVE_ID"):
+        make_settings(
+            app_env="production",
+            app_demo_mode=False,
+            app_trust_tailscale_headers=True,
+            app_allowed_tailscale_user="ceo@example.test",
+            db_user="readonly",
+            db_password="secret",
+            thinkwise_index_path="data/wiki_index.db",
+            google_enabled=True,
+            google_client_id="client-id",
+            google_client_secret="client-secret",
+            google_redirect_uri="https://dashboard.example/api/google/oauth/callback",
+        )

@@ -55,6 +55,7 @@ def test_dashboard_and_health_are_ready_in_demo_mode() -> None:
     assert health.json()["demo_mode"] is True
     assert health.json()["google"]["status"] == "ok"
     assert google.status_code == 200
+    assert google.json()["drive_scope"] == "shared"
     assert len(google.json()["events"]) == 2
     assert len(google.json()["files"]) == 2
 
@@ -91,6 +92,15 @@ def test_dashboard_page_serves_approved_mockup() -> None:
     assert 'id="googleConnectLink"' in response.text
     assert "fetch('/api/google'" in response.text
     assert 'class="executive-weekly"' in response.text
+    assert 'role="tablist"' in response.text
+    assert 'id="googleTab"' in response.text
+    assert 'id="thinkwiseTab"' in response.text
+    assert 'id="googlePanel"' in response.text
+    assert 'id="thinkwisePanel"' in response.text
+    assert 'aria-selected="true"' in response.text
+    assert 'id="thinkwisePanel" role="tabpanel" aria-labelledby="thinkwiseTab" hidden' in response.text
+    assert "activateDashboardTab('google')" in response.text
+    assert "회사 공유 Drive 최근 수정 파일" in response.text
     assert "fetch('/api/todos'" in response.text
     assert "완료하면 목록에서 자동으로 정리됩니다." in response.text
     assert "(mail.items || []).slice(0, 10)" in response.text

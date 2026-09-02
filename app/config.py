@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     google_client_secret: SecretStr = SecretStr("")
     google_refresh_token: SecretStr = SecretStr("")
     google_redirect_uri: str = ""
+    google_shared_drive_id: str = ""
 
     @field_validator("app_timezone")
     @classmethod
@@ -157,6 +158,10 @@ class Settings(BaseSettings):
             if self.app_env.strip().lower() == "production":
                 if not redirect_uri.startswith("https://"):
                     raise ValueError("운영 Google Redirect URI는 HTTPS여야 합니다.")
+                if not self.google_shared_drive_id.strip():
+                    raise ValueError(
+                        "운영 Google 연동에는 GOOGLE_SHARED_DRIVE_ID가 필요합니다."
+                    )
             elif not redirect_uri.startswith(
                 ("http://127.0.0.1", "http://localhost", "https://")
             ):

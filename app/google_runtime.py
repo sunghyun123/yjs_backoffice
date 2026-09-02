@@ -45,6 +45,7 @@ class GoogleWorkspaceRuntime:
         self._snapshot = GoogleWorkspaceSnapshot(
             configured=collector.configured,
             authorized=collector.authorized,
+            drive_scope=getattr(collector, "drive_scope", "personal"),
             refresh_interval_sec=refresh_interval_sec,
         )
         self._state = GoogleWorkerState()

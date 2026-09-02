@@ -175,6 +175,36 @@
     font-weight: 750;
     cursor: pointer;
   }
+  .dashboard-tabs {
+    position: sticky;
+    top: 12px;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(720px, 100%);
+    margin: 0 auto 24px;
+    padding: 5px;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .dashboard-tab {
+    padding: 10px 14px;
+    color: var(--text-soft);
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 760;
+  }
+
+  .dashboard-tab:hover { color: var(--navy); background: var(--surface-subtle); }
+  .dashboard-tab[aria-selected="true"] { color: #fff; background: var(--blue); box-shadow: 0 5px 14px color-mix(in srgb, var(--blue) 24%, transparent); }
+  .dashboard-tab:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 35%, transparent); outline-offset: 2px; }
+  .dashboard-tab-panel[hidden], .settings-button[hidden] { display: none; }
   .tabular { font-variant-numeric: tabular-nums; }
 
   .visual-summary {
@@ -812,23 +842,29 @@
     <div>
       <p class="eyebrow">YJ EXECUTIVE</p>
       <h1>경영 대시보드</h1>
-      <p class="subtitle">씽크와이즈 협업 현황과 최근 안 읽은 메일을 한눈에 봅니다.</p>
+      <p class="subtitle">Google 일정·회사 공유 Drive와 씽크와이즈 협업 현황을 한눈에 봅니다.</p>
     </div>
     <div class="sync-panel" aria-label="데이터 갱신 상태">
       <div class="secure"><span class="secure-dot"></span>비공개 HTTPS 연결</div>
       <div class="sync-row"><span>씽크와이즈 · 1분 주기</span><strong class="tabular" id="thinkwiseUpdated">11:34 갱신</strong></div>
       <div class="sync-row"><span>메일 · 5분 주기</span><strong class="tabular" id="mailUpdated">11:30 갱신</strong></div>
-      <button type="button" class="settings-button" id="settingsButton">분류 기준 설정</button>
+      <button type="button" class="settings-button" id="settingsButton" hidden>분류 기준 설정</button>
     </div>
   </header>
 
+  <nav class="dashboard-tabs" id="dashboardTabs" role="tablist" aria-label="대시보드 보기">
+    <button type="button" class="dashboard-tab" id="googleTab" role="tab" aria-selected="true" aria-controls="googlePanel" data-dashboard-tab="google">Google</button>
+    <button type="button" class="dashboard-tab" id="thinkwiseTab" role="tab" aria-selected="false" aria-controls="thinkwisePanel" data-dashboard-tab="thinkwise" tabindex="-1">씽크와이즈</button>
+  </nav>
+
+  <div class="dashboard-tab-panel" id="googlePanel" role="tabpanel" aria-labelledby="googleTab">
   <section class="executive-weekly" id="weekly" aria-labelledby="weekly-title">
     <h2 class="sr-only" id="weekly-title">대표이사 주간 현황</h2>
 
     <div class="weekly-stats" aria-label="주간 핵심 요약">
       <div class="weekly-stat"><span>이번 주 일정</span><strong id="weeklyEventStat">—</strong></div>
       <div class="weekly-stat"><span>가장 가까운 일정</span><strong id="nextEventStat">—</strong></div>
-      <div class="weekly-stat"><span>Drive 최근 변경</span><strong id="driveFileStat">—</strong></div>
+      <div class="weekly-stat"><span id="driveStatLabel">공유 Drive 최근 변경</span><strong id="driveFileStat">—</strong></div>
       <div class="weekly-stat"><span>남은 할 일</span><strong id="todoStat">0건</strong></div>
     </div>
 
@@ -846,7 +882,7 @@
 
     <section class="weekly-section" aria-labelledby="drive-title">
       <div class="weekly-section-title">
-        <h2 id="drive-title">Drive 최근 수정 파일</h2>
+        <h2 id="drive-title">회사 공유 Drive 최근 수정 파일</h2>
         <span><a class="google-connect" id="googleConnectLink" href="/api/google/oauth/start" hidden>Google 계정 연결</a></span>
       </div>
       <div class="panel weekly-card">
@@ -879,7 +915,9 @@
 
     <p class="google-note" id="googleStatus" role="status" aria-live="polite"></p>
   </section>
+  </div>
 
+  <div class="dashboard-tab-panel" id="thinkwisePanel" role="tabpanel" aria-labelledby="thinkwiseTab" hidden>
   <section class="panel visual-summary" aria-label="핵심 현황 차트">
     <article class="summary-chart">
       <h2 class="chart-title">씽크와이즈 최근 활동</h2>
@@ -1061,6 +1099,7 @@
     <div class="online-copy"><h2 id="online-title">씽크와이즈 최근 활동</h2><p id="onlineSummary">최근 15분 이내 활동 · 최근 30일 사용자 7명 중 4명</p></div>
     <div class="people" id="onlinePeople" aria-label="최근 활동 사용자"><span class="person">박준호 · 11:19</span><span class="person">이현우 · 11:15</span><span class="person">정다은 · 11:14</span><span class="person">최민석 · 11:12</span></div>
   </section>
+  </div>
 </main>
 
 <dialog class="settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
@@ -1088,6 +1127,10 @@
     const todoForm = document.getElementById('todoForm');
     const todoInput = document.getElementById('todoInput');
     const todoAddButton = document.getElementById('todoAddButton');
+    const dashboardTabs = [...document.querySelectorAll('[data-dashboard-tab]')];
+    const dashboardTabPanels = [...document.querySelectorAll('.dashboard-tab-panel')];
+    const dashboardTabsElement = document.getElementById('dashboardTabs');
+    const settingsButton = document.getElementById('settingsButton');
     let activeFilter = 'current';
     let hasRenderedData = false;
     let todoItems = [];
@@ -1124,6 +1167,36 @@
       row.textContent = message;
       list.replaceChildren(row);
     }
+
+    function activateDashboardTab(tabName, focusTab = false, scrollToTop = false) {
+      dashboardTabs.forEach((tab) => {
+        const selected = tab.dataset.dashboardTab === tabName;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        if (selected && focusTab) tab.focus();
+      });
+      dashboardTabPanels.forEach((panel) => {
+        panel.hidden = panel.id !== `${tabName}Panel`;
+      });
+      settingsButton.hidden = tabName !== 'thinkwise';
+      if (scrollToTop) {
+        window.scrollTo({ top: Math.max(0, dashboardTabsElement.offsetTop - 12), behavior: 'smooth' });
+      }
+    }
+
+    dashboardTabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activateDashboardTab(tab.dataset.dashboardTab, false, true));
+      tab.addEventListener('keydown', (event) => {
+        let nextIndex = null;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % dashboardTabs.length;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + dashboardTabs.length) % dashboardTabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = dashboardTabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        activateDashboardTab(dashboardTabs[nextIndex].dataset.dashboardTab, true, true);
+      });
+    });
 
     function setTodoStatus(message, isError = false) {
       const status = document.getElementById('todoStatus');
@@ -1249,8 +1322,11 @@
     function renderGoogle(data) {
       const events = data.events || [];
       const files = data.files || [];
+      const sharedDrive = data.drive_scope === 'shared';
       const connect = document.getElementById('googleConnectLink');
       connect.hidden = !data.configured || data.authorized;
+      setText('driveStatLabel', sharedDrive ? '공유 Drive 최근 변경' : '내 Drive 최근 변경');
+      setText('drive-title', sharedDrive ? '회사 공유 Drive 최근 수정 파일' : '내 Drive 최근 수정 파일');
       setText('weeklyEventStat', `${events.length}건`);
       setText('driveFileStat', `${files.length}건`);
       const upcoming = events.find((event) => Number(event.dday) >= 0);
@@ -1339,7 +1415,9 @@
         item.append(link);
         drive.append(item);
       });
-      if (!drive.children.length) replaceWeeklyList('driveList', '최근 수정 파일이 없습니다.');
+      if (!drive.children.length) {
+        replaceWeeklyList('driveList', sharedDrive ? '회사 공유 Drive에 최근 수정 파일이 없습니다.' : '최근 수정 파일이 없습니다.');
+      }
 
       if (data.stale) {
         setGoogleStatus('Google 갱신에 실패해 마지막 성공 데이터를 표시합니다.', true);
@@ -1872,6 +1950,7 @@
     }
 
     updateRows();
+    activateDashboardTab('google');
     showInitialLoadingState();
     loadDashboard();
     loadTodos();

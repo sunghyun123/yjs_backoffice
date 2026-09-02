@@ -62,6 +62,7 @@ class GoogleDriveFile(BaseModel):
 class GoogleWorkspaceSnapshot(BaseModel):
     configured: bool = False
     authorized: bool = False
+    drive_scope: Literal["personal", "shared"] = "personal"
     refresh_interval_sec: int = 300
     fetched_at: datetime | None = None
     stale: bool = False

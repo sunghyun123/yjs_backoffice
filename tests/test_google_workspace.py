@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from app.google_workspace import GoogleWorkspaceCollector
 
 
-def test_google_collector_reads_current_week_and_recent_personal_files() -> None:
+def test_google_collector_reads_current_week_and_recent_shared_drive_files() -> None:
     timezone = ZoneInfo("Asia/Seoul")
     now = datetime.now(timezone)
     monday = now.date() - timedelta(days=now.weekday())
@@ -61,6 +61,7 @@ def test_google_collector_reads_current_week_and_recent_personal_files() -> None
         timezone=timezone,
         refresh_interval_sec=300,
         configured=True,
+        shared_drive_id="company-drive-id",
         json_getter=get_json,
         token_provider=lambda: "access-token",
     )
@@ -69,6 +70,7 @@ def test_google_collector_reads_current_week_and_recent_personal_files() -> None
 
     assert snapshot.configured is True
     assert snapshot.authorized is True
+    assert snapshot.drive_scope == "shared"
     assert snapshot.week_start == monday
     assert snapshot.week_end == monday + timedelta(days=6)
     assert [event.title for event in snapshot.events] == ["경영회의", "현장 방문"]
@@ -80,7 +82,10 @@ def test_google_collector_reads_current_week_and_recent_personal_files() -> None
     drive_query = parse_qs(urlsplit(calls[1]).query)
     assert calendar_query["singleEvents"] == ["true"]
     assert calendar_query["orderBy"] == ["startTime"]
-    assert drive_query["corpora"] == ["user"]
+    assert drive_query["corpora"] == ["drive"]
+    assert drive_query["driveId"] == ["company-drive-id"]
+    assert drive_query["includeItemsFromAllDrives"] == ["true"]
+    assert drive_query["supportsAllDrives"] == ["true"]
     assert drive_query["orderBy"] == ["modifiedTime desc"]
     assert "mimeType !=" in drive_query["q"][0]
 
@@ -103,3 +108,29 @@ def test_google_collector_does_not_call_external_api_before_authorization() -> N
     assert snapshot.authorized is False
     assert snapshot.events == []
     assert snapshot.files == []
+
+
+def test_google_collector_keeps_personal_drive_fallback_without_shared_drive_id() -> None:
+    calls: list[str] = []
+
+    def get_json(url: str, _token: str) -> dict[str, object]:
+        calls.append(url)
+        return {"items": []} if "/calendar/" in url else {"files": []}
+
+    collector = GoogleWorkspaceCollector(
+        client_id="client",
+        client_secret="secret",
+        refresh_token="refresh",
+        timezone=ZoneInfo("Asia/Seoul"),
+        refresh_interval_sec=300,
+        configured=True,
+        json_getter=get_json,
+        token_provider=lambda: "access-token",
+    )
+
+    snapshot = collector.collect()
+    drive_query = parse_qs(urlsplit(calls[1]).query)
+
+    assert snapshot.drive_scope == "personal"
+    assert drive_query["corpora"] == ["user"]
+    assert "driveId" not in drive_query

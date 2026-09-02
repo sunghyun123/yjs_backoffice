@@ -147,6 +147,7 @@ $googleSettingsReady = -not $googleEnabled -or (
     [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_CLIENT_ID") -and
     [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_CLIENT_SECRET") -and
     [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_REFRESH_TOKEN") -and
+    [bool](Get-DotEnvValue $dashboardEnv "GOOGLE_SHARED_DRIVE_ID") -and
     (Get-DotEnvValue $dashboardEnv "GOOGLE_REDIRECT_URI").StartsWith(
         "https://", [StringComparison]::OrdinalIgnoreCase
     )
@@ -292,6 +293,7 @@ if ($loopbackOnly -and $allowedUsers.Count -gt 0) {
             $googleSettingsReady -and
             $google.configured -and
             $google.authorized -and
+            $google.drive_scope -eq "shared" -and
             $google.fetched_at -and
             -not $google.stale -and
             $health.google.status -eq "ok"

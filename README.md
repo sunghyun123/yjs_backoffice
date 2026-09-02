@@ -52,7 +52,7 @@ Copy-Item .env.example .env
 
 ## Google Calendar·Drive 1회 연결
 
-Google 연동은 대표이사 개인 계정 하나만 대상으로 하며 파일 본문을 다운로드하지 않습니다. 요청 범위는 Calendar 읽기 전용과 Drive 메타데이터 읽기 전용 두 가지뿐입니다. OAuth 갱신 토큰은 Git·SQLite·로그가 아니라 운영 서버 `.env`에만 저장합니다.
+Google 연동은 대표이사 개인 계정의 Calendar와 회사 공유 Drive 하나를 대상으로 하며 파일 본문을 다운로드하지 않습니다. 요청 범위는 Calendar 읽기 전용과 Drive 메타데이터 읽기 전용 두 가지뿐입니다. OAuth 갱신 토큰은 Git·SQLite·로그가 아니라 운영 서버 `.env`에만 저장합니다.
 
 1. Google Cloud에서 [Calendar API](https://developers.google.com/workspace/calendar/api/quickstart/python)와 [Drive API](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)를 활성화합니다.
 2. OAuth 클라이언트 유형을 `Web application`으로 만들고 승인된 Redirect URI에 `https://<비공개-대시보드>/api/google/oauth/callback`을 등록합니다.
@@ -64,7 +64,10 @@ GOOGLE_CLIENT_ID=<Google Cloud Client ID>
 GOOGLE_CLIENT_SECRET=<Google Cloud Client Secret>
 GOOGLE_REFRESH_TOKEN=
 GOOGLE_REDIRECT_URI=https://<비공개-대시보드>/api/google/oauth/callback
+GOOGLE_SHARED_DRIVE_ID=<회사 공유 드라이브 ID>
 ```
+
+공유 드라이브 ID는 Google Drive에서 해당 공유 드라이브를 연 주소의 `/drives/` 뒤 값입니다. 운영 모드에서는 이 값을 필수로 검사해 개인 Drive로 잘못 조회되는 것을 막습니다.
 
 4. 요구사항을 설치하고 대시보드를 재시작한 뒤 화면의 `Google 계정 연결`을 누릅니다. 앱은 [오프라인 액세스 방식](https://developers.google.com/identity/protocols/oauth2/web-server#offline)으로 한 번 동의를 받고 갱신 토큰을 `.env`에 무출력 저장합니다.
 5. `scripts/secure_runtime_acl.ps1`로 ACL을 재확인하고 `scripts/verify_delivery.ps1 -RequireProduction`을 실행합니다.

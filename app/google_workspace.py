@@ -35,7 +35,7 @@ TokenProvider = Callable[[], str]
 
 
 class GoogleWorkspaceCollector:
-    """Reads only the CEO's Calendar events and Drive file metadata."""
+    """Reads only the CEO's Calendar events and configured Drive metadata."""
 
     def __init__(
         self,
@@ -46,6 +46,7 @@ class GoogleWorkspaceCollector:
         timezone: ZoneInfo,
         refresh_interval_sec: int,
         configured: bool,
+        shared_drive_id: str = "",
         json_getter: JsonGetter | None = None,
         token_provider: TokenProvider | None = None,
     ) -> None:
@@ -55,6 +56,7 @@ class GoogleWorkspaceCollector:
         self._timezone = timezone
         self._refresh_interval_sec = refresh_interval_sec
         self._configured = configured
+        self._shared_drive_id = shared_drive_id.strip()
         self._json_getter = json_getter or _get_json
         self._token_provider = token_provider
 
@@ -65,6 +67,10 @@ class GoogleWorkspaceCollector:
     @property
     def authorized(self) -> bool:
         return self._configured and bool(self._refresh_token)
+
+    @property
+    def drive_scope(self) -> str:
+        return "shared" if self._shared_drive_id else "personal"
 
     def set_refresh_token(self, refresh_token: str) -> None:
         self._refresh_token = refresh_token
@@ -84,6 +90,7 @@ class GoogleWorkspaceCollector:
         return GoogleWorkspaceSnapshot(
             configured=True,
             authorized=True,
+            drive_scope=self.drive_scope,
             refresh_interval_sec=self._refresh_interval_sec,
             fetched_at=now,
             week_start=week_start,
@@ -102,6 +109,7 @@ class GoogleWorkspaceCollector:
         return GoogleWorkspaceSnapshot(
             configured=configured,
             authorized=False,
+            drive_scope=self.drive_scope,
             refresh_interval_sec=self._refresh_interval_sec,
             week_start=week_start,
             week_end=week_end,
@@ -194,16 +202,23 @@ class GoogleWorkspaceCollector:
         )
 
     def _fetch_files(self, token: str) -> list[GoogleDriveFile]:
-        query = urlencode(
-            {
-                "q": f"trashed = false and mimeType != '{GOOGLE_FOLDER_MIME_TYPE}'",
-                "corpora": "user",
-                "spaces": "drive",
-                "orderBy": "modifiedTime desc",
-                "pageSize": "8",
-                "fields": "files(id,name,mimeType,modifiedTime)",
-            }
-        )
+        query_params = {
+            "q": f"trashed = false and mimeType != '{GOOGLE_FOLDER_MIME_TYPE}'",
+            "corpora": "drive" if self._shared_drive_id else "user",
+            "spaces": "drive",
+            "orderBy": "modifiedTime desc",
+            "pageSize": "8",
+            "fields": "files(id,name,mimeType,modifiedTime)",
+        }
+        if self._shared_drive_id:
+            query_params.update(
+                {
+                    "driveId": self._shared_drive_id,
+                    "includeItemsFromAllDrives": "true",
+                    "supportsAllDrives": "true",
+                }
+            )
+        query = urlencode(query_params)
         payload = self._json_getter(f"{GOOGLE_DRIVE_FILES_URI}?{query}", token)
         files: list[GoogleDriveFile] = []
         for item in payload.get("files", []):
@@ -231,6 +246,7 @@ class GoogleWorkspaceCollector:
 class DemoGoogleWorkspaceCollector:
     configured = True
     authorized = True
+    drive_scope = "shared"
 
     def __init__(self, timezone: ZoneInfo, refresh_interval_sec: int) -> None:
         self._timezone = timezone
@@ -280,6 +296,7 @@ class DemoGoogleWorkspaceCollector:
         return GoogleWorkspaceSnapshot(
             configured=True,
             authorized=True,
+            drive_scope=self.drive_scope,
             refresh_interval_sec=self._refresh_interval_sec,
             fetched_at=now,
             week_start=week_start,
