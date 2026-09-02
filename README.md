@@ -69,6 +69,12 @@ GOOGLE_SHARED_DRIVE_ID=<회사 공유 드라이브 ID>
 
 공유 드라이브 ID는 Google Drive에서 해당 공유 드라이브를 연 주소의 `/drives/` 뒤 값입니다. 운영 모드에서는 이 값을 필수로 검사해 개인 Drive로 잘못 조회되는 것을 막습니다.
 
+기존 `.env`의 다른 값은 보존하면서 운영 서버의 대상만 바꿀 때는 아래 스크립트를 사용합니다. 스크립트는 ID 값을 화면에 다시 출력하지 않습니다.
+
+```powershell
+.\scripts\set_google_shared_drive.ps1 -SharedDriveId "<회사 공유 드라이브 ID>"
+```
+
 4. 요구사항을 설치하고 대시보드를 재시작한 뒤 화면의 `Google 계정 연결`을 누릅니다. 앱은 [오프라인 액세스 방식](https://developers.google.com/identity/protocols/oauth2/web-server#offline)으로 한 번 동의를 받고 갱신 토큰을 `.env`에 무출력 저장합니다.
 5. `scripts/secure_runtime_acl.ps1`로 ACL을 재확인하고 `scripts/verify_delivery.ps1 -RequireProduction`을 실행합니다.
 
