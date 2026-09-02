@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,12 +22,63 @@ class StatusThresholds(BaseModel):
             raise ValueError("상태 기준일은 active < idle < dormant 순서여야 합니다.")
 
 
+class ProjectMarkUpdate(BaseModel):
+    mark: ManualStatus
+    memo: str = Field(default="", max_length=500)
+
+
+class TodoCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=120)
+
+
+class TodoItem(BaseModel):
+    id: int = Field(ge=1)
+    text: str
+    created_at: datetime
+
+
+class GoogleCalendarEvent(BaseModel):
+    id: str
+    title: str
+    starts_at: datetime | None = None
+    start_date: date | None = None
+    ends_at: datetime | None = None
+    end_date: date | None = None
+    all_day: bool = False
+    dday: int
+
+
+class GoogleDriveFile(BaseModel):
+    id: str
+    name: str
+    mime_type: str
+    kind: str
+    modified_at: datetime
+    open_url: str
+
+
+class GoogleWorkspaceSnapshot(BaseModel):
+    configured: bool = False
+    authorized: bool = False
+    drive_scope: Literal["personal", "shared"] = "personal"
+    refresh_interval_sec: int = 300
+    fetched_at: datetime | None = None
+    stale: bool = False
+    error: str | None = None
+    week_start: date | None = None
+    week_end: date | None = None
+    events: list[GoogleCalendarEvent] = Field(default_factory=list)
+    files: list[GoogleDriveFile] = Field(default_factory=list)
+
+
 class Project(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     tree_cnt: int = 0
     last_touch: datetime
@@ -40,7 +91,7 @@ class Project(BaseModel):
 class IdleProject(BaseModel):
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     last_touch: datetime
     idle_days: int = Field(ge=0)
@@ -145,7 +196,7 @@ def idle_project_list(projects: list[Project]) -> list[IdleProject]:
         IdleProject(
             hashfname=project.hashfname,
             title=project.title,
-            owner=project.owner,
+            creator=project.creator,
             members=project.members,
             last_touch=project.last_touch,
             idle_days=project.idle_days,
