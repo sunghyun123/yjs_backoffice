@@ -25,6 +25,7 @@ def test_thinkwise_activity_defaults_to_one_minute_and_three_minute_stale_limit(
 
     assert settings.work_log_refresh_seconds == 60
     assert settings.thinkwise_index_max_age_seconds == 180
+    assert settings.google_refresh_seconds == 60
 
 
 def test_production_requires_real_data_and_tailscale_identity_validation() -> None:

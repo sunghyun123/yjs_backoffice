@@ -60,6 +60,7 @@ Google 연동은 대표이사 개인 계정의 Calendar와 회사 공유 Drive �
 
 ```dotenv
 GOOGLE_ENABLED=true
+GOOGLE_REFRESH_SECONDS=60
 GOOGLE_CLIENT_ID=<Google Cloud Client ID>
 GOOGLE_CLIENT_SECRET=<Google Cloud Client Secret>
 GOOGLE_REFRESH_TOKEN=
@@ -73,6 +74,7 @@ GOOGLE_SHARED_DRIVE_ID=<회사 공유 드라이브 ID>
 
 ```powershell
 .\scripts\set_google_shared_drive.ps1 -SharedDriveId "<회사 공유 드라이브 ID>"
+.\scripts\set_google_refresh_seconds.ps1 -Seconds 60
 ```
 
 4. 요구사항을 설치하고 대시보드를 재시작한 뒤 화면의 `Google 계정 연결`을 누릅니다. 앱은 [오프라인 액세스 방식](https://developers.google.com/identity/protocols/oauth2/web-server#offline)으로 한 번 동의를 받고 갱신 토큰을 `.env`에 무출력 저장합니다.

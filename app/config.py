@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     mail_naver_url: str = "https://mail.naver.com/"
 
     google_enabled: bool = False
-    google_refresh_seconds: int = Field(default=300, ge=60, le=3600)
+    google_refresh_seconds: int = Field(default=60, ge=60, le=3600)
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
     google_refresh_token: SecretStr = SecretStr("")
