@@ -1153,7 +1153,7 @@
       PASTE: ['붙여넣기', 'action-add'], LINK: ['연결', 'action-link']
     };
     const accountMeta = {
-      daou: ['다우', 'account-daou'], gmail: ['G', 'account-gmail'], naver: ['N', 'account-naver']
+      daou: ['다우', 'account-daou'], gmail: ['G', 'account-gmail'], gmail_work: ['G', 'account-gmail'], naver: ['N', 'account-naver']
     };
 
     function setText(id, value) {
@@ -1588,15 +1588,22 @@
     }
 
     function renderMail(mail) {
-      const counts = { daou: 0, gmail: 0, naver: 0, ...(mail.unread_by_account || {}) };
+      const byAccount = mail.unread_by_account || {};
+      // 화면은 Gmail 한 칸으로 보여준다. 개인·회사 Gmail 두 계정을 합산한다.
+      const counts = {
+        daou: Number(byAccount.daou || 0),
+        gmail: Number(byAccount.gmail || 0) + Number(byAccount.gmail_work || 0),
+        naver: Number(byAccount.naver || 0)
+      };
+      const accountCount = Object.keys(byAccount).length || 3;
       const total = Number(mail.unread_total || 0);
       setText('mailTotal', total);
       setText('mailCardCount', total);
       const mailStatus = mail.stale
         ? `${mail.error || '메일 갱신 실패'} · ${ageText(mail.fetched_at)} 데이터`
         : mail.fetched_at
-          ? `3개 계정 통합 · ${timeText(mail.fetched_at)} 갱신`
-          : '3개 계정 통합 · 연동 준비 중';
+          ? `${accountCount}개 계정 통합 · ${timeText(mail.fetched_at)} 갱신`
+          : `${accountCount}개 계정 통합 · 연동 준비 중`;
       setText('mailUpdated', mail.stale ? `실패 · ${ageText(mail.fetched_at)} 데이터` : mail.fetched_at ? `${timeText(mail.fetched_at)} 갱신` : '연동 준비 중');
       setText('mailCardSubtitle', mailStatus);
       document.getElementById('mailStack').setAttribute('aria-label', `다우오피스 ${counts.daou}건, Gmail ${counts.gmail}건, 네이버 ${counts.naver}건`);

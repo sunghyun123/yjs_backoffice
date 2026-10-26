@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     mail_gmail_user: str = ""
     mail_gmail_password: SecretStr = SecretStr("")
     mail_gmail_url: str = "https://mail.google.com/"
+    mail_gmail_work_enabled: bool = False
+    mail_gmail_work_host: str = "imap.gmail.com"
+    mail_gmail_work_port: int = Field(default=993, ge=1, le=65535)
+    mail_gmail_work_user: str = ""
+    mail_gmail_work_password: SecretStr = SecretStr("")
+    mail_gmail_work_url: str = "https://mail.google.com/"
     mail_naver_enabled: bool = False
     mail_naver_host: str = "imap.naver.com"
     mail_naver_port: int = Field(default=993, ge=1, le=65535)
@@ -123,6 +129,14 @@ class Settings(BaseSettings):
                 self.mail_gmail_user,
                 self.mail_gmail_password,
                 self.mail_gmail_url,
+            ),
+            (
+                "Gmail(회사)",
+                self.mail_gmail_work_enabled,
+                self.mail_gmail_work_host,
+                self.mail_gmail_work_user,
+                self.mail_gmail_work_password,
+                self.mail_gmail_work_url,
             ),
             (
                 "네이버",

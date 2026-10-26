@@ -3,16 +3,18 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 
 from app.config import PROJECT_ROOT, Settings, get_settings
 from app.domain import (
     DashboardSnapshot,
     GoogleWorkspaceSnapshot,
+    MailDayResult,
     ProjectMarkUpdate,
     StatusThresholds,
     TodoCreate,
@@ -22,6 +24,7 @@ from app.google_oauth import GoogleOAuthManager
 from app.google_runtime import GoogleCollector, GoogleWorkspaceRuntime
 from app.google_workspace import DemoGoogleWorkspaceCollector, GoogleWorkspaceCollector
 from app.mail import MailAccount, MailCollector
+from app.mail_day import MailDayReader
 from app.repository import DashboardRepository, ThinkWiseRepository
 from app.runtime import DashboardRuntime
 from app.security import install_security_middleware
@@ -38,6 +41,7 @@ def create_app(
     repository: DashboardRepository | None = None,
     google_collector: GoogleCollector | None = None,
     google_oauth_manager: Any | None = None,
+    mail_day_reader: MailDayReader | None = None,
 ) -> FastAPI:
     runtime_settings = settings or get_settings()
     runtime_repository = repository or _make_repository(runtime_settings)
@@ -52,6 +56,10 @@ def create_app(
         _make_mail_collector(runtime_settings),
     )
     runtime = DashboardRuntime(service, runtime_repository, runtime_settings)
+    day_reader = mail_day_reader or MailDayReader(
+        _mail_accounts(runtime_settings),
+        runtime_settings.timezone,
+    )
     runtime_google_collector = google_collector or _make_google_collector(runtime_settings)
     google_runtime = GoogleWorkspaceRuntime(
         runtime_google_collector,
@@ -106,6 +114,13 @@ def create_app(
     @app.get("/api/google", response_model=GoogleWorkspaceSnapshot)
     async def google_data() -> GoogleWorkspaceSnapshot:
         return google_runtime.snapshot()
+
+    @app.get("/api/mail/day", response_model=MailDayResult)
+    def mail_day(days_ago: int = Query(default=1, ge=0, le=30)) -> MailDayResult:
+        # async가 아닌 def: IMAP 조회가 길어져도 FastAPI가 별도 스레드에서 돌려 다른 요청을 막지 않는다.
+        # '오늘'은 이 PC 시계의 순간을 설정 시간대(Asia/Seoul) 달력으로 읽어 정한다.
+        today = datetime.now(runtime_settings.timezone).date()
+        return day_reader.read_day(today - timedelta(days=days_ago))
 
     @app.get("/api/google/oauth/start", include_in_schema=False)
     async def google_oauth_start() -> RedirectResponse:
@@ -230,6 +245,14 @@ def _make_repository(settings: Settings) -> DashboardRepository:
 
 
 def _make_mail_collector(settings: Settings) -> MailCollector:
+    return MailCollector(
+        _mail_accounts(settings),
+        settings.timezone,
+        settings.mail_refresh_seconds,
+    )
+
+
+def _mail_accounts(settings: Settings) -> list[MailAccount]:
     accounts: list[MailAccount] = []
     candidates = (
         (
@@ -251,6 +274,15 @@ def _make_mail_collector(settings: Settings) -> MailCollector:
             settings.mail_gmail_url,
         ),
         (
+            "gmail_work",
+            settings.mail_gmail_work_enabled,
+            settings.mail_gmail_work_host,
+            settings.mail_gmail_work_port,
+            settings.mail_gmail_work_user,
+            settings.mail_gmail_work_password.get_secret_value(),
+            settings.mail_gmail_work_url,
+        ),
+        (
             "naver",
             settings.mail_naver_enabled,
             settings.mail_naver_host,
@@ -265,11 +297,7 @@ def _make_mail_collector(settings: Settings) -> MailCollector:
             accounts.append(
                 MailAccount(name, host, port, username, password, mailbox_url)
             )
-    return MailCollector(
-        accounts,
-        settings.timezone,
-        settings.mail_refresh_seconds,
-    )
+    return accounts
 
 
 def _make_google_collector(settings: Settings) -> GoogleCollector:

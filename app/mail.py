@@ -9,13 +9,12 @@ from email import policy
 from email.header import decode_header
 from email.parser import BytesParser
 from email.utils import parseaddr, parsedate_to_datetime
-from typing import Literal, Protocol
+from typing import Protocol
 from zoneinfo import ZoneInfo
 
-from app.domain import MailItem, MailSnapshot
+from app.domain import MailAccountName, MailItem, MailSnapshot
 
 
-MailAccountName = Literal["daou", "gmail", "naver"]
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +38,10 @@ class ImapConnection(Protocol):
     def fetch(self, message_set, message_parts): ...
 
     def logout(self): ...
+
+    def list(self, directory: str = '""', pattern: str = "*"): ...
+
+    def uid(self, command: str, *args): ...
 
 
 ImapFactory = Callable[[str, int, int], ImapConnection]

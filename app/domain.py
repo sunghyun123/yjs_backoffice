@@ -112,8 +112,11 @@ class OnlineUser(BaseModel):
     at: datetime
 
 
+MailAccountName = Literal["daou", "gmail", "gmail_work", "naver"]
+
+
 class MailItem(BaseModel):
-    account: Literal["daou", "gmail", "naver"]
+    account: MailAccountName
     sender: str
     subject: str
     at: datetime | None = None
@@ -128,6 +131,37 @@ class MailSnapshot(BaseModel):
     unread_total: int = 0
     unread_by_account: dict[str, int] = Field(default_factory=dict)
     items: list[MailItem] = Field(default_factory=list)
+
+
+class MailMessage(BaseModel):
+    account: MailAccountName
+    folder: str = "INBOX"
+    message_id: str | None = None
+    sender: str
+    sender_address: str = ""
+    subject: str
+    received_at: datetime
+    body: str = ""
+    body_truncated: bool = False
+
+
+class MailAccountDayStatus(BaseModel):
+    account: MailAccountName
+    ok: bool
+    count: int = 0
+    # 하루 상한을 넘겨 일부만 담았는지. 잘린 결과가 전부인 것처럼 보이지 않게 한다.
+    truncated: bool = False
+
+
+class MailDayResult(BaseModel):
+    date: date
+    timezone: str
+    window_start: datetime
+    window_end: datetime
+    fetched_at: datetime
+    configured: bool = False
+    accounts: list[MailAccountDayStatus] = Field(default_factory=list)
+    messages: list[MailMessage] = Field(default_factory=list)
 
 
 class DashboardKpi(BaseModel):
