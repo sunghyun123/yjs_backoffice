@@ -1,0 +1,42 @@
+{
+  "manifest_version": "0.3",
+  "name": "yj-mail",
+  "display_name": "YJ 대표이사 메일",
+  "version": "0.1.0",
+  "description": "다우오피스·Gmail·네이버 메일 4계정에서 하루치 받은 메일을 읽기 전용으로 가져옵니다.",
+  "author": {
+    "name": "YJ 경영지원"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "YJ_SERVER_URL": "${user_config.server_url}"
+      }
+    }
+  },
+  "user_config": {
+    "server_url": {
+      "type": "string",
+      "title": "대시보드 서버 주소",
+      "description": "Tailscale 비공개 주소 (https://로 시작). 이 PC에서 Tailscale이 켜져 있어야 연결됩니다.",
+      "required": true,
+      "default": "https://yj-dashboard.tail7cbfd2.ts.net"
+    }
+  },
+  "tools": [
+    {
+      "name": "get_mail",
+      "description": "한국 시간 기준 하루 동안 받은 메일을 4개 계정에서 모아 가져옵니다 (읽기 전용)."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["win32", "darwin"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}
