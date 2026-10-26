@@ -72,6 +72,20 @@ class DashboardRuntime:
                 name="recent-edits-refresh",
             ),
         ]
+        if not self._settings.app_demo_mode:
+            self._tasks.extend(
+                [
+                    asyncio.create_task(self.refresh_mail(), name="mail-initial-refresh"),
+                    asyncio.create_task(
+                        self._worker_loop(
+                            "mail",
+                            self._settings.mail_refresh_seconds,
+                            self.refresh_mail,
+                        ),
+                        name="mail-refresh",
+                    ),
+                ]
+            )
 
     async def stop(self) -> None:
         self._stopping.set()
@@ -80,6 +94,7 @@ class DashboardRuntime:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         await asyncio.to_thread(self._repository.close)
+        await asyncio.to_thread(self._service.close)
 
     def snapshot(self) -> DashboardSnapshot:
         with self._lock:
@@ -92,28 +107,41 @@ class DashboardRuntime:
                 for name, state in self._states.items()
             }
             snapshot = self._snapshot.model_copy(deep=True)
-        core_ready = states["thinkwise"]["last_success_at"] is not None
+        core_ready = self._worker_is_current(states["thinkwise"])
+        recent_edits_ready = self._worker_is_current(states["recent_edits"])
+        source = self._repository.source_health()
+        source_healthy = bool(source.get("healthy"))
         return {
-            "status": "ok" if core_ready and not snapshot.stale else "degraded",
+            "status": (
+                "ok"
+                if core_ready
+                and recent_edits_ready
+                and not snapshot.stale
+                and source_healthy
+                else "degraded"
+            ),
             "demo_mode": self._settings.app_demo_mode,
             "generated_at": snapshot.generated_at.isoformat(),
             "stale": snapshot.stale,
             "workers": states,
+            "source": source,
         }
+
+    @staticmethod
+    def _worker_is_current(state: dict[str, Any]) -> bool:
+        last_success = state.get("last_success_at")
+        last_error = state.get("last_error_at")
+        return bool(last_success) and (not last_error or last_success >= last_error)
 
     async def refresh_core(self) -> None:
         state = self._states["thinkwise"]
         state.running = True
         try:
+            refreshed = await asyncio.to_thread(self._service.load_core)
             with self._lock:
-                recent_edits = self._snapshot.recent_edits.copy()
-                mail = self._snapshot.mail.model_copy(deep=True)
-            refreshed = await asyncio.to_thread(
-                self._service.load_core, recent_edits=recent_edits
-            )
-            if not self._settings.app_demo_mode:
-                refreshed.mail = mail
-            with self._lock:
+                refreshed.recent_edits = self._snapshot.recent_edits.copy()
+                if not self._settings.app_demo_mode:
+                    refreshed.mail = self._snapshot.mail.model_copy(deep=True)
                 self._snapshot = refreshed
                 self._record_success(state)
         except Exception as exc:
@@ -136,6 +164,32 @@ class DashboardRuntime:
                 self._record_success(state)
         except Exception as exc:
             with self._lock:
+                self._record_failure(state, exc)
+        finally:
+            state.running = False
+
+    async def refresh_mail(self) -> None:
+        state = self._states["mail"]
+        state.running = True
+        try:
+            mail = await asyncio.to_thread(self._service.load_mail)
+            with self._lock:
+                if mail.stale:
+                    previous = self._snapshot.mail.model_copy(deep=True)
+                    if previous.fetched_at is not None:
+                        previous.stale = True
+                        previous.error = mail.error or "메일 갱신에 실패했습니다."
+                        self._snapshot.mail = previous
+                    else:
+                        self._snapshot.mail = mail
+                    self._record_failure(state, RuntimeError("partial mail refresh"))
+                else:
+                    self._snapshot.mail = mail
+                    self._record_success(state)
+        except Exception as exc:
+            with self._lock:
+                self._snapshot.mail.stale = True
+                self._snapshot.mail.error = "메일 갱신에 실패했습니다."
                 self._record_failure(state, exc)
         finally:
             state.running = False

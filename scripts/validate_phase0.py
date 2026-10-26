@@ -79,6 +79,48 @@ CHECKS: dict[str, tuple[str, tuple[Any, ...]]] = {
         """,
         (),
     ),
+    "owner_related_columns": (
+        """
+        SELECT COLUMN_NAME
+          FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = 'tw_colman'
+           AND TABLE_NAME = 'collaboration_board'
+           AND (COLUMN_NAME LIKE '%%MEMBER%%'
+                OR COLUMN_NAME LIKE '%%USER%%'
+                OR COLUMN_NAME LIKE '%%OWNER%%'
+                OR COLUMN_NAME LIKE '%%REG%%')
+         ORDER BY ORDINAL_POSITION
+        """,
+        (),
+    ),
+    "owner_identity_alignment": (
+        """
+        SELECT COUNT(*) AS total_projects,
+               SUM(EXISTS(
+                   SELECT 1
+                     FROM tw_colman.collaboration_user u
+                    WHERE u.MEMBER_ID = b.MEMBER_ID
+                      AND u.MEMBER_NAME = b.MEMBER_NAME
+               )) AS identity_matches,
+               SUM(EXISTS(
+                   SELECT 1
+                     FROM tw_colman.collaboration_participant p
+                    WHERE p.COL_IDX = b.SEQ
+                      AND p.MEMBER_ID = b.MEMBER_ID
+               )) AS participant_matches,
+               SUM(CASE WHEN b.MEMBER_ID = b.REG_ID THEN 1 ELSE 0 END)
+                   AS member_equals_reg,
+               SUM(EXISTS(
+                   SELECT 1
+                     FROM tw_colman.collaboration_user u
+                    WHERE u.MEMBER_ID = b.REG_ID
+                      AND u.MEMBER_NAME = b.MEMBER_NAME
+               )) AS register_identity_matches
+          FROM tw_colman.collaboration_board b
+         WHERE COALESCE(b.DEL_YN, 'N') <> 'Y'
+        """,
+        (),
+    ),
 }
 
 
@@ -102,7 +144,7 @@ def main() -> int:
         repository.close()
 
     print(json.dumps(results, ensure_ascii=False, indent=2, default=str))
-    print("\n주의: MEMBER_NAME의 업무상 의미는 결과와 실제 화면을 표본 대조해 사람이 확정해야 합니다.")
+    print("\n주의: MEMBER_NAME은 계정·참여자 관계까지 확인하며, 업무상 역할 명칭은 사람이 확정해야 합니다.")
     return 0
 
 

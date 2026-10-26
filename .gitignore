@@ -34,6 +34,8 @@ venv/
 
 # ── 로컬 데이터 / 업로드 (레포에 올리지 않는다) ────────
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 uploads/
 data/local/

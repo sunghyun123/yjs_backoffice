@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대표님 주간 현황판</title>
+<style>
+  :root{
+    color-scheme: light;
+    --page:            #f9f9f7;
+    --surface:         #fcfcfb;
+    --surface-2:       #f2f2ef;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --border:          rgba(11,11,11,0.10);
+    --gridline:        #e1e0d9;
+    --accent:          #2a78d6;
+    --accent-soft:     #e7f0fb;
+    --good:            #0ca30c;
+    --warning:         #fab219;
+    --serious:         #ec835a;
+    --critical:        #d03b3b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --page:            #0d0d0d;
+      --surface:         #1a1a19;
+      --surface-2:       #202020;
+      --text-primary:    #ffffff;
+      --text-secondary:  #c3c2b7;
+      --text-muted:      #898781;
+      --border:          rgba(255,255,255,0.10);
+      --gridline:        #2c2c2a;
+      --accent:          #3987e5;
+      --accent-soft:     #16273c;
+      --good:            #0ca30c;
+      --warning:         #fab219;
+      --serious:         #ec835a;
+      --critical:        #e66767;
+    }
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 28px 18px 56px;
+  }
+  .wrap{ max-width: 720px; margin: 0 auto; }
+
+  /* Header */
+  .header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom: 22px; flex-wrap: wrap; }
+  .header h1{ font-size: 21px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .header .sub{ font-size: 13px; color: var(--text-secondary); }
+  .updated-badge{
+    font-size: 12px; color: var(--text-muted);
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 20px; white-space: nowrap;
+  }
+
+  /* Stat tiles */
+  .stats{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 26px; }
+  .stat-tile{
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 12px;
+  }
+  .stat-tile .label{ font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px; line-height:1.3; }
+  .stat-tile .value{ font-size: 22px; font-weight: 700; font-variant-numeric: proportional-nums; }
+  .stat-tile .value span{ color: var(--accent); }
+
+  /* Section */
+  .section{ margin-bottom: 28px; }
+  .section-title{
+    font-size: 12.5px; font-weight:700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 0 0 12px 2px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .section-title .count{ font-weight:600; color: var(--text-muted); text-transform:none; letter-spacing:0; }
+
+  .card{ background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow:hidden; }
+
+  /* Timeline (calendar) */
+  .tl-item{ display:flex; gap:14px; padding: 14px 16px; border-bottom: 1px solid var(--gridline); }
+  .tl-item:last-child{ border-bottom:none; }
+  .tl-date{ flex: 0 0 56px; text-align:center; }
+  .tl-date .dow{ font-size: 11px; color: var(--text-muted); text-transform:uppercase; }
+  .tl-date .day{ font-size: 19px; font-weight:700; line-height:1.2; }
+  .tl-body{ flex:1; min-width:0; }
+  .tl-title{ font-size: 14.5px; font-weight:600; margin-bottom: 2px; }
+  .tl-time{ font-size: 12.5px; color: var(--text-secondary); }
+  .tl-dday{
+    flex: 0 0 auto; align-self:center; font-size: 11.5px; font-weight:700;
+    padding: 4px 9px; border-radius: 20px; background: var(--accent-soft); color: var(--accent);
+    white-space: nowrap;
+  }
+  .empty-row{ padding: 22px 16px; text-align:center; color: var(--text-muted); font-size: 13px; }
+
+  /* File list */
+  .file-item{ display:flex; align-items:center; gap:12px; padding: 12px 16px; border-bottom: 1px solid var(--gridline); text-decoration:none; color:inherit; }
+  .file-item:last-child{ border-bottom:none; }
+  .file-icon{
+    flex: 0 0 34px; width:34px; height:34px; border-radius:9px; background: var(--surface-2);
+    display:flex; align-items:center; justify-content:center; font-size: 15px;
+  }
+  .file-body{ flex:1; min-width:0; }
+  .file-title{ font-size: 13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .file-meta{ font-size: 12px; color: var(--text-muted); margin-top:1px; }
+  .file-arrow{ flex: 0 0 auto; color: var(--text-muted); font-size: 13px; }
+  .file-item:hover{ background: var(--surface-2); }
+
+  /* Todo */
+  .todo-add{ display:flex; gap:8px; padding: 12px 14px; border-bottom: 1px solid var(--gridline); }
+  .todo-add input{
+    flex:1; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
+    border-radius: 10px; padding: 9px 12px; font-size: 13.5px; font-family: inherit;
+  }
+  .todo-add input:focus{ outline: 2px solid var(--accent); outline-offset: 1px; }
+  .todo-add button{
+    border:none; background: var(--accent); color: #fff; font-size: 13px; font-weight:600;
+    padding: 0 16px; border-radius: 10px; cursor:pointer;
+  }
+  .todo-list{ list-style:none; margin:0; padding:0; }
+  .todo-item{ display:flex; align-items:center; gap:11px; padding: 11px 16px; border-bottom: 1px solid var(--gridline); }
+  .todo-item:last-child{ border-bottom:none; }
+  .todo-item input[type=checkbox]{ width:17px; height:17px; accent-color: var(--accent); flex:0 0 auto; cursor:pointer; }
+  .todo-item .txt{ flex:1; font-size: 13.5px; }
+  .todo-item.done .txt{ color: var(--text-muted); text-decoration: line-through; }
+  .todo-item .del{ flex:0 0 auto; border:none; background:none; color: var(--text-muted); font-size: 15px; cursor:pointer; padding:2px 6px; }
+  .todo-item .del:hover{ color: var(--critical); }
+  .todo-progress{ padding: 10px 16px 14px; }
+  .bar-track{ height:6px; border-radius:4px; background: var(--gridline); overflow:hidden; }
+  .bar-fill{ height:100%; background: var(--good); border-radius:4px; transition: width .2s ease; }
+  .progress-label{ font-size: 11.5px; color: var(--text-muted); margin-top:6px; }
+
+  .foot-note{
+    font-size: 12px; color: var(--text-muted); line-height:1.6; text-align:center;
+    padding-top: 18px; border-top: 1px solid var(--border); margin-top: 6px;
+  }
+
+  @media (max-width: 480px){
+    .stats{ grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1>대표님 주간 현황판</h1>
+      <div class="sub">이번 주 일정 · Drive 최근 변경 · 할 일</div>
+    </div>
+    <div class="updated-badge" id="updatedBadge">마지막 업데이트: 2026-08-17 (월) 16:00 KST</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-tile">
+      <div class="label">이번 주 일정</div>
+      <div class="value"><span>3</span>건</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">가장 가까운 일정</div>
+      <div class="value"><span>D-1</span></div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Drive 최근 변경</div>
+      <div class="value"><span>8</span>건</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">할 일 진행률</div>
+      <div class="value" id="statProgress"><span>0%</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span>이번 주 일정</span><span class="count">8/17 (월) – 8/23 (일)</span></div>
+    <div class="card">
+      <div class="tl-item">
+        <div class="tl-date"><div class="dow">화</div><div class="day">18</div></div>
+        <div class="tl-body">
+          <div class="tl-title">치과</div>
+          <div class="tl-time">오후 4:00 – 5:00</div>
+        </div>
+        <div class="tl-dday">D-1</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date"><div class="dow">토</div><div class="day">22</div></div>
+        <div class="tl-body">
+          <div class="tl-title">와이프 동서모임</div>
+          <div class="tl-time">종일</div>
+        </div>
+        <div class="tl-dday">D-5</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date"><div class="dow">일</div><div class="day">23</div></div>
+        <div class="tl-body">
+          <div class="tl-title">와이프 친구 모임</div>
+          <div class="tl-time">오전 11:00 – 낮 12:00</div>
+        </div>
+        <div class="tl-dday">D-6</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span>Drive 최근 수정 파일</span><span class="count">최신순</span></div>
+    <div class="card">
+      <a class="file-item" href="https://drive.google.com/file/d/1fgSCBxFXoF4o-BRzWwXHLIX3HVekJkLa/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">🖼️</div>
+        <div class="file-body">
+          <div class="file-title">thumbnail.png</div>
+          <div class="file-meta">오늘 15:52</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+      <a class="file-item" href="https://drive.google.com/file/d/1nnLusNpSexbedKOaAp8dPPzJ2meaqk3R/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">🌐</div>
+        <div class="file-body">
+          <div class="file-title">marketing-radar.html</div>
+          <div class="file-meta">오늘 15:50</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+      <a class="file-item" href="https://drive.google.com/file/d/11W_grm_-NJOKSK7WejYV5aP_AYiuS-AI/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">🌐</div>
+        <div class="file-body">
+          <div class="file-title">index.html <span style="color:var(--text-muted); font-weight:400;">— marketing-opportunity-radar</span></div>
+          <div class="file-meta">오늘 15:50</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+      <a class="file-item" href="https://drive.google.com/file/d/1CsHk8UjUem_aIYg8eZo7A70tHHgUA-BA/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">📊</div>
+        <div class="file-body">
+          <div class="file-title">안산 시화국가산단데이터센터_전기공사_26년 8월 예정공정표.xlsx</div>
+          <div class="file-meta">오늘 15:21</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+      <a class="file-item" href="https://drive.google.com/file/d/1AB1xD5L0HGZRi5FzQxcu2WlMkyDkkNTg/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">📊</div>
+        <div class="file-body">
+          <div class="file-title">안산데이터센타 케이블포설도222.xls</div>
+          <div class="file-meta">오늘 15:14</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+      <a class="file-item" href="https://drive.google.com/file/d/1RcQqjA_XEvRXu6FmE5yZ6RjUv1gUSqwy/view?usp=drivesdk" target="_blank" rel="noopener">
+        <div class="file-icon">📄</div>
+        <div class="file-body">
+          <div class="file-title">케이블포설도.pdf</div>
+          <div class="file-meta">오늘 15:14</div>
+        </div>
+        <div class="file-arrow">↗</div>
+      </a>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span>할 일</span><span class="count" id="todoCount">0/0</span></div>
+    <div class="card">
+      <div class="todo-add">
+        <input type="text" id="todoInput" placeholder="할 일을 입력하고 Enter" maxlength="120">
+        <button id="todoAddBtn">추가</button>
+      </div>
+      <ul class="todo-list" id="todoList"></ul>
+      <div class="todo-progress">
+        <div class="bar-track"><div class="bar-fill" id="progressBar" style="width:0%"></div></div>
+        <div class="progress-label" id="progressLabel">아직 할 일이 없어요</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note">
+    개인용 현황판입니다 · 캘린더/Drive 데이터는 마지막 업데이트 시점 기준 스냅샷이며,<br>
+    새로고침 시 자동으로 갱신되지 않아요. 최신 내용이 필요하면 챗에서 "업데이트해줘"라고 요청해 주세요.<br>
+    할 일 목록은 이 창을 닫으면 초기화돼요 — 계속 남기려면 챗에서 항목을 알려주시면 고정해 드릴게요.
+  </div>
+
+</div>
+
+<script>
+  (function(){
+    var todos = [];
+    var listEl = document.getElementById('todoList');
+    var input = document.getElementById('todoInput');
+    var addBtn = document.getElementById('todoAddBtn');
+    var countEl = document.getElementById('todoCount');
+    var barEl = document.getElementById('progressBar');
+    var progressLabel = document.getElementById('progressLabel');
+    var statProgress = document.getElementById('statProgress');
+
+    function render(){
+      listEl.innerHTML = '';
+      todos.forEach(function(t, i){
+        var li = document.createElement('li');
+        li.className = 'todo-item' + (t.done ? ' done' : '');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = t.done;
+        cb.addEventListener('change', function(){ t.done = cb.checked; render(); });
+        var span = document.createElement('span');
+        span.className = 'txt';
+        span.textContent = t.text;
+        var del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '✕';
+        del.addEventListener('click', function(){ todos.splice(i,1); render(); });
+        li.appendChild(cb); li.appendChild(span); li.appendChild(del);
+        listEl.appendChild(li);
+      });
+
+      var total = todos.length;
+      var done = todos.filter(function(t){ return t.done; }).length;
+      countEl.textContent = done + '/' + total;
+      var pct = total ? Math.round(done/total*100) : 0;
+      barEl.style.width = pct + '%';
+      progressLabel.textContent = total ? (pct + '% 완료 (' + done + '/' + total + ')') : '아직 할 일이 없어요';
+      statProgress.innerHTML = '<span>' + pct + '%</span>';
+    }
+
+    function addTodo(){
+      var v = input.value.trim();
+      if(!v) return;
+      todos.push({text: v, done: false});
+      input.value = '';
+      render();
+    }
+
+    addBtn.addEventListener('click', addTodo);
+    input.addEventListener('keydown', function(e){ if(e.key === 'Enter') addTodo(); });
+
+    render();
+  })();
+</script>
+</body>
+</html>

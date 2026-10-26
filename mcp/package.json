@@ -1,0 +1,19 @@
+{
+  "name": "yj-mail-mcp",
+  "version": "0.1.0",
+  "description": "대표이사 메일 하루 조회 MCP 중계 (Claude Desktop 확장)",
+  "main": "server/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test",
+    "pack": "npx -y @anthropic-ai/mcpb@latest pack . dist/yj-mail.mcpb"
+  },
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "private": true
+}

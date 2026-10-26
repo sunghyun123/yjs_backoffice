@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 import threading
 from collections.abc import Mapping
 from datetime import datetime
@@ -10,6 +11,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 from app.config import Settings
+from app.worklog_index import SQLiteWorkLogIndex
 
 
 Row = dict[str, Any]
@@ -23,6 +25,8 @@ class DashboardRepository(Protocol):
     def fetch_active_users_30d(self) -> int: ...
 
     def fetch_recent_edits(self, limit: int = 30) -> list[Row]: ...
+
+    def source_health(self) -> dict[str, object]: ...
 
     def close(self) -> None: ...
 
@@ -45,7 +49,8 @@ class ThinkWiseRepository:
     """Minimal, SELECT-only access to the ThinkWise MariaDB schemas."""
 
     PROJECTS_SQL = """
-        SELECT b.SEQ, b.HASHFNAME, b.TITLE, b.MEMBER_NAME, b.TREE_CNT,
+        SELECT b.SEQ, b.HASHFNAME, b.TITLE,
+               b.MEMBER_NAME AS CREATOR_NAME, b.TREE_CNT,
                COALESCE(b.UPD_DATE, b.REG_DATE, b.CRT_DATE) AS last_touch,
                DATEDIFF(NOW(), COALESCE(b.UPD_DATE, b.REG_DATE, b.CRT_DATE)) AS idle_days,
                (SELECT COUNT(*)
@@ -83,8 +88,13 @@ class ThinkWiseRepository:
          LIMIT %s
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        work_log_index: SQLiteWorkLogIndex | None = None,
+    ) -> None:
         self._settings = settings
+        self._work_log_index = work_log_index
         self._connection: pymysql.Connection[DictCursor] | None = None
         self._lock = threading.Lock()
 
@@ -116,7 +126,26 @@ class ThinkWiseRepository:
         return [dict(row) for row in rows]
 
     def fetch_projects(self) -> list[Row]:
-        return self._select(self.PROJECTS_SQL)
+        rows = self._select(self.PROJECTS_SQL)
+        if self._work_log_index is None:
+            return rows
+        last_touches = self._work_log_index.fetch_project_last_touches()
+        today = datetime.now(self._settings.timezone).date()
+        for row in rows:
+            last_touch = last_touches.get(str(row.get("HASHFNAME") or ""))
+            if last_touch is None:
+                continue
+            row["last_touch"] = last_touch
+            row["idle_days"] = max((today - last_touch.date()).days, 0)
+        rows.sort(
+            key=lambda row: (
+                row["last_touch"].isoformat()
+                if isinstance(row.get("last_touch"), datetime)
+                else ""
+            ),
+            reverse=True,
+        )
+        return rows
 
     def fetch_online_users(self, online_minutes: int) -> list[Row]:
         rows = self._select(self.ONLINE_USERS_SQL, (online_minutes,))
@@ -132,14 +161,31 @@ class ThinkWiseRepository:
         return int(rows[0].get("active_users") or 0) if rows else 0
 
     def fetch_recent_edits(self, limit: int = 30) -> list[Row]:
+        if self._work_log_index is not None:
+            return self._work_log_index.fetch_recent_edits(limit)
         safe_limit = max(1, min(limit, 100))
         return self._select(self.RECENT_EDITS_SQL, (safe_limit,))
+
+    def source_health(self) -> dict[str, object]:
+        if self._work_log_index is None:
+            return {"mode": "direct_mariadb", "healthy": True}
+        try:
+            return self._work_log_index.health()
+        except (FileNotFoundError, sqlite3.Error, ValueError):
+            return {
+                "mode": "shared_sqlite_index",
+                "healthy": False,
+                "last_sync_at": None,
+                "has_error": True,
+            }
 
     def close(self) -> None:
         with self._lock:
             if self._connection is not None:
                 self._connection.close()
                 self._connection = None
+        if self._work_log_index is not None:
+            self._work_log_index.close()
 
 
 def require_datetime(row: Mapping[str, Any], field: str) -> datetime:

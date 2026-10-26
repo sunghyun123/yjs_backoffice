@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,12 +22,63 @@ class StatusThresholds(BaseModel):
             raise ValueError("상태 기준일은 active < idle < dormant 순서여야 합니다.")
 
 
+class ProjectMarkUpdate(BaseModel):
+    mark: ManualStatus
+    memo: str = Field(default="", max_length=500)
+
+
+class TodoCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=120)
+
+
+class TodoItem(BaseModel):
+    id: int = Field(ge=1)
+    text: str
+    created_at: datetime
+
+
+class GoogleCalendarEvent(BaseModel):
+    id: str
+    title: str
+    starts_at: datetime | None = None
+    start_date: date | None = None
+    ends_at: datetime | None = None
+    end_date: date | None = None
+    all_day: bool = False
+    dday: int
+
+
+class GoogleDriveFile(BaseModel):
+    id: str
+    name: str
+    mime_type: str
+    kind: str
+    modified_at: datetime
+    open_url: str
+
+
+class GoogleWorkspaceSnapshot(BaseModel):
+    configured: bool = False
+    authorized: bool = False
+    drive_scope: Literal["personal", "shared"] = "personal"
+    refresh_interval_sec: int = 300
+    fetched_at: datetime | None = None
+    stale: bool = False
+    error: str | None = None
+    week_start: date | None = None
+    week_end: date | None = None
+    events: list[GoogleCalendarEvent] = Field(default_factory=list)
+    files: list[GoogleDriveFile] = Field(default_factory=list)
+
+
 class Project(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     tree_cnt: int = 0
     last_touch: datetime
@@ -40,7 +91,7 @@ class Project(BaseModel):
 class IdleProject(BaseModel):
     hashfname: str
     title: str
-    owner: str | None = None
+    creator: str | None = None
     members: int = 0
     last_touch: datetime
     idle_days: int = Field(ge=0)
@@ -61,8 +112,11 @@ class OnlineUser(BaseModel):
     at: datetime
 
 
+MailAccountName = Literal["daou", "gmail", "gmail_work", "naver"]
+
+
 class MailItem(BaseModel):
-    account: Literal["daou", "gmail", "naver"]
+    account: MailAccountName
     sender: str
     subject: str
     at: datetime | None = None
@@ -77,6 +131,37 @@ class MailSnapshot(BaseModel):
     unread_total: int = 0
     unread_by_account: dict[str, int] = Field(default_factory=dict)
     items: list[MailItem] = Field(default_factory=list)
+
+
+class MailMessage(BaseModel):
+    account: MailAccountName
+    folder: str = "INBOX"
+    message_id: str | None = None
+    sender: str
+    sender_address: str = ""
+    subject: str
+    received_at: datetime
+    body: str = ""
+    body_truncated: bool = False
+
+
+class MailAccountDayStatus(BaseModel):
+    account: MailAccountName
+    ok: bool
+    count: int = 0
+    # 하루 상한을 넘겨 일부만 담았는지. 잘린 결과가 전부인 것처럼 보이지 않게 한다.
+    truncated: bool = False
+
+
+class MailDayResult(BaseModel):
+    date: date
+    timezone: str
+    window_start: datetime
+    window_end: datetime
+    fetched_at: datetime
+    configured: bool = False
+    accounts: list[MailAccountDayStatus] = Field(default_factory=list)
+    messages: list[MailMessage] = Field(default_factory=list)
 
 
 class DashboardKpi(BaseModel):
@@ -145,7 +230,7 @@ def idle_project_list(projects: list[Project]) -> list[IdleProject]:
         IdleProject(
             hashfname=project.hashfname,
             title=project.title,
-            owner=project.owner,
+            creator=project.creator,
             members=project.members,
             last_touch=project.last_touch,
             idle_days=project.idle_days,
